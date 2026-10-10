@@ -1102,7 +1102,7 @@ function renderDay(dayNo){
 
                   ${
                     i.note
-                      ? `<br>${i.note}`
+                      ? `<br>${i.note.replace(/\n/g, "<br>")}`
                       : ""
                   }
 
