@@ -2725,3 +2725,453 @@ if(
     );
 
 }
+/* =========================================================
+   WEB_EMERGENCY · 긴급/안전 정보
+   ========================================================= */
+
+(async function loadEmergencyInfo() {
+
+  const url = window.TRIP_CONFIG?.emergencyCsvUrl;
+
+  if (!url) {
+    console.log("emergencyCsvUrl이 없습니다.");
+    return;
+  }
+
+
+  /* CSV 읽기 */
+  function parseEmergencyCSV(text) {
+
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let quoted = false;
+
+    for (let i = 0; i < text.length; i++) {
+
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"' && quoted && next === '"') {
+        cell += '"';
+        i++;
+        continue;
+      }
+
+      if (char === '"') {
+        quoted = !quoted;
+        continue;
+      }
+
+      if (char === "," && !quoted) {
+        row.push(cell.trim());
+        cell = "";
+        continue;
+      }
+
+      if ((char === "\n" || char === "\r") && !quoted) {
+
+        if (char === "\r" && next === "\n") {
+          i++;
+        }
+
+        row.push(cell.trim());
+
+        if (row.some(value => value !== "")) {
+          rows.push(row);
+        }
+
+        row = [];
+        cell = "";
+        continue;
+      }
+
+      cell += char;
+    }
+
+    row.push(cell.trim());
+
+    if (row.some(value => value !== "")) {
+      rows.push(row);
+    }
+
+    if (!rows.length) {
+      return [];
+    }
+
+    const headers = rows[0];
+
+    return rows.slice(1).map(values => {
+
+      const obj = {};
+
+      headers.forEach((header, index) => {
+        obj[header.trim()] = (values[index] || "").trim();
+      });
+
+      return obj;
+
+    }).filter(item => item["제목"]);
+
+  }
+
+
+  /* 이모지 열이 없어도 자동으로 붙임 */
+  function getEmoji(item) {
+
+    if (item["이모지"]) {
+      return item["이모지"];
+    }
+
+    const text =
+      `${item["구분"] || ""} ${item["제목"] || ""}`;
+
+    if (text.includes("여권")) return "🛂";
+    if (text.includes("대표부") || text.includes("대사관")) return "🇰🇷";
+    if (text.includes("경찰")) return "👮";
+    if (text.includes("소방") || text.includes("구급") || text.includes("응급")) return "🚑";
+    if (text.includes("긴급")) return "🆘";
+    if (text.includes("관광")) return "ℹ️";
+    if (
+      text.includes("태풍") ||
+      text.includes("지진") ||
+      text.includes("자연재해")
+    ) return "🌪️";
+
+    return "📌";
+  }
+
+
+  /* HTML 안전 처리 */
+  function escapeHTML(value = "") {
+
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  }
+
+
+  /* 화면에 출력 */
+  function renderEmergency(items) {
+
+    const infoView = document.querySelector("#info");
+
+    if (!infoView) {
+      return;
+    }
+
+
+    /* 이미 한 번 생성됐다면 제거 */
+    document
+      .querySelector("#emergencySection")
+      ?.remove();
+
+
+    const section = document.createElement("div");
+
+    section.id = "emergencySection";
+
+    section.innerHTML = `
+
+      <div class="section-head emergency-heading">
+        <div>
+          <p class="eyebrow">EMERGENCY</p>
+          <h2>긴급 · 안전 정보</h2>
+          <p class="emergency-sub">
+            여행 중 문제가 생겼을 때 바로 확인하세요.
+          </p>
+        </div>
+      </div>
+
+      <div class="stack emergency-list">
+
+        ${items.map(item => {
+
+          const emoji = getEmoji(item);
+
+          const title =
+            escapeHTML(item["제목"]);
+
+          const description =
+            escapeHTML(item["설명"]);
+
+          const phone =
+            escapeHTML(item["전화번호"]);
+
+          const hours =
+            escapeHTML(item["운영시간"]);
+
+          const action =
+            escapeHTML(item["행동요령"]);
+
+          const link =
+            item["링크"] || "";
+
+          const phoneLink =
+            String(item["전화번호"] || "")
+              .replace(/[^0-9+]/g, "");
+
+
+          return `
+
+            <article class="card info-card emergency-card">
+
+              <div class="emergency-title">
+
+                <span class="emergency-emoji">
+                  ${emoji}
+                </span>
+
+                <div>
+                  <h3>${title}</h3>
+
+                  ${
+                    description
+                      ? `<p class="emergency-description">${description}</p>`
+                      : ""
+                  }
+                </div>
+
+              </div>
+
+
+              ${
+                phone
+                  ? `
+                    <a
+                      class="emergency-phone"
+                      href="tel:${phoneLink}"
+                    >
+                      📞 ${phone}
+                    </a>
+                  `
+                  : ""
+              }
+
+
+              ${
+                hours
+                  ? `
+                    <p class="emergency-meta">
+                      <strong>운영시간</strong>
+                      ${hours}
+                    </p>
+                  `
+                  : ""
+              }
+
+
+              ${
+                action
+                  ? `
+                    <div class="emergency-action">
+                      <strong>이렇게 하세요</strong>
+                      <p>${action}</p>
+                    </div>
+                  `
+                  : ""
+              }
+
+
+              ${
+                /^https?:\/\//i.test(link)
+                  ? `
+                    <a
+                      class="emergency-link"
+                      href="${escapeHTML(link)}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      관련 정보 보기 →
+                    </a>
+                  `
+                  : ""
+              }
+
+            </article>
+
+          `;
+
+        }).join("")}
+
+      </div>
+
+    `;
+
+
+    /* 숙소 정보 아래에 긴급정보 추가 */
+    infoView.appendChild(section);
+
+  }
+
+
+  /* 필요한 CSS도 JS에서 자동 추가 */
+  function addEmergencyStyle() {
+
+    if (document.querySelector("#emergencyStyle")) {
+      return;
+    }
+
+    const style = document.createElement("style");
+
+    style.id = "emergencyStyle";
+
+    style.textContent = `
+
+      #emergencySection {
+        margin-top: 34px;
+        padding-bottom: 20px;
+      }
+
+      .emergency-heading {
+        margin-bottom: 14px;
+      }
+
+      .emergency-sub {
+        margin: 5px 0 0;
+        font-size: 14px;
+        opacity: 0.65;
+      }
+
+      .emergency-card {
+        padding: 20px;
+      }
+
+      .emergency-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 13px;
+      }
+
+      .emergency-title h3 {
+        margin: 0;
+      }
+
+      .emergency-emoji {
+        flex-shrink: 0;
+        font-size: 27px;
+        line-height: 1;
+      }
+
+      .emergency-description {
+        margin: 6px 0 0;
+        font-size: 14px;
+        line-height: 1.55;
+        opacity: 0.7;
+      }
+
+      .emergency-phone {
+        display: block;
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(31, 95, 82, 0.09);
+        color: #1f5f52;
+        font-size: 17px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .emergency-meta {
+        margin: 14px 0 0;
+        font-size: 13px;
+        opacity: 0.7;
+      }
+
+      .emergency-meta strong {
+        margin-right: 6px;
+      }
+
+      .emergency-action {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.035);
+      }
+
+      .emergency-action strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 13px;
+      }
+
+      .emergency-action p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .emergency-link {
+        display: inline-block;
+        margin-top: 14px;
+        color: #1f5f52;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+    `;
+
+    document.head.appendChild(style);
+
+  }
+
+
+  try {
+
+    /* Google Sheets 캐시 방지 */
+    const separator =
+      url.includes("?") ? "&" : "?";
+
+    const response = await fetch(
+      `${url}${separator}v=${Date.now()}`,
+      {
+        cache: "no-store"
+      }
+    );
+
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+    }
+
+
+    const text =
+      await response.text();
+
+    const items =
+      parseEmergencyCSV(text);
+
+
+    if (!items.length) {
+
+      console.log(
+        "WEB_EMERGENCY 데이터가 없습니다."
+      );
+
+      return;
+
+    }
+
+
+    addEmergencyStyle();
+
+    renderEmergency(items);
+
+
+  } catch (error) {
+
+    console.error(
+      "WEB_EMERGENCY 불러오기 실패:",
+      error
+    );
+
+  }
+
+})();
