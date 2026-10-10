@@ -3175,3 +3175,640 @@ if(
   }
 
 })();
+/* =========================================================
+   WEB_PHRASES · 여행 회화
+   Google Sheets 연동 + 상황별 탭 + TTS + 복사
+   ========================================================= */
+
+(function () {
+
+  const PHRASES_URL = window.TRIP_CONFIG?.phrasesCsvUrl;
+
+  if (!PHRASES_URL) {
+    console.log("phrasesCsvUrl이 없습니다.");
+    return;
+  }
+
+
+  /* =========================
+     CSV 읽기
+  ========================= */
+
+  function parsePhrasesCSV(text) {
+
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let quoted = false;
+
+    for (let i = 0; i < text.length; i++) {
+
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"' && quoted && next === '"') {
+        cell += '"';
+        i++;
+        continue;
+      }
+
+      if (char === '"') {
+        quoted = !quoted;
+        continue;
+      }
+
+      if (char === "," && !quoted) {
+        row.push(cell.trim());
+        cell = "";
+        continue;
+      }
+
+      if ((char === "\n" || char === "\r") && !quoted) {
+
+        if (char === "\r" && next === "\n") {
+          i++;
+        }
+
+        row.push(cell.trim());
+
+        if (row.some(value => value !== "")) {
+          rows.push(row);
+        }
+
+        row = [];
+        cell = "";
+        continue;
+      }
+
+      cell += char;
+    }
+
+    row.push(cell.trim());
+
+    if (row.some(value => value !== "")) {
+      rows.push(row);
+    }
+
+
+    if (!rows.length) {
+      return [];
+    }
+
+
+    const headers = rows[0].map(header => header.trim());
+
+
+    return rows
+      .slice(1)
+      .map(values => {
+
+        const item = {};
+
+        headers.forEach((header, index) => {
+          item[header] = (values[index] || "").trim();
+        });
+
+        return item;
+
+      })
+      .filter(item =>
+        item["한국어"] &&
+        item["중국어"]
+      );
+
+  }
+
+
+
+  /* =========================
+     HTML 안전 처리
+  ========================= */
+
+  function escapePhraseHTML(value = "") {
+
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  }
+
+
+
+  /* =========================
+     중국어 듣기
+  ========================= */
+
+  function speakPhrase(chinese) {
+
+    if (!("speechSynthesis" in window)) {
+      alert("이 기기에서는 음성 재생을 지원하지 않습니다.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance =
+      new SpeechSynthesisUtterance(chinese);
+
+    utterance.lang = "zh-TW";
+    utterance.rate = 0.82;
+    utterance.pitch = 1;
+
+    const voices =
+      window.speechSynthesis.getVoices();
+
+    const taiwanVoice =
+      voices.find(voice =>
+        voice.lang?.toLowerCase().includes("zh-tw")
+      );
+
+    if (taiwanVoice) {
+      utterance.voice = taiwanVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
+
+  }
+
+
+
+  /* =========================
+     복사
+  ========================= */
+
+  async function copyPhrase(item) {
+
+    const text = [
+      item["한국어"],
+      item["중국어"],
+      item["병음"] || "",
+      item["한글발음"] || ""
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+
+    try {
+
+      await navigator.clipboard.writeText(text);
+
+      alert("문장을 복사했습니다.");
+
+    } catch (error) {
+
+      console.error(error);
+
+      alert("복사하지 못했습니다.");
+
+    }
+
+  }
+
+
+
+  /* =========================
+     스타일
+  ========================= */
+
+  function addPhraseStyles() {
+
+    if (document.querySelector("#webPhrasesStyle")) {
+      return;
+    }
+
+    const style =
+      document.createElement("style");
+
+    style.id = "webPhrasesStyle";
+
+    style.textContent = `
+
+      .phrase-tabs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 2px 0 12px;
+        margin-bottom: 8px;
+        scrollbar-width: none;
+      }
+
+      .phrase-tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .phrase-tab {
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 999px;
+        padding: 9px 14px;
+        background: rgba(31,95,82,0.08);
+        color: #1f5f52;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .phrase-tab.active {
+        background: #1f5f52;
+        color: white;
+      }
+
+      .phrase-card {
+        padding: 20px;
+      }
+
+      .phrase-korean {
+        margin: 0 0 9px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .phrase-chinese {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
+      .phrase-pinyin {
+        margin: 7px 0 0;
+        font-size: 15px;
+        font-style: italic;
+        opacity: 0.67;
+      }
+
+      .phrase-korean-pronunciation {
+        margin: 5px 0 0;
+        font-size: 14px;
+        opacity: 0.72;
+      }
+
+      .phrase-note {
+        margin: 10px 0 0;
+        font-size: 13px;
+        opacity: 0.62;
+      }
+
+      .phrase-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+      }
+
+      .phrase-action-btn {
+        flex: 1;
+        border: 0;
+        border-radius: 12px;
+        padding: 11px 10px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .phrase-listen-btn {
+        background: rgba(31,95,82,0.10);
+        color: #1f5f52;
+      }
+
+      .phrase-copy-btn {
+        background: rgba(0,0,0,0.055);
+        color: inherit;
+      }
+
+    `;
+
+    document.head.appendChild(style);
+
+  }
+
+
+
+  /* =========================
+     카드 출력
+  ========================= */
+
+  function createPhraseCard(item) {
+
+    const korean =
+      escapePhraseHTML(item["한국어"]);
+
+    const chinese =
+      escapePhraseHTML(item["중국어"]);
+
+    const pinyin =
+      escapePhraseHTML(item["병음"]);
+
+    const pronunciation =
+      escapePhraseHTML(item["한글발음"]);
+
+    const note =
+      escapePhraseHTML(item["메모"]);
+
+
+    const article =
+      document.createElement("article");
+
+    article.className =
+      "card phrase-card";
+
+
+    article.innerHTML = `
+
+      <p class="phrase-korean">
+        ${korean}
+      </p>
+
+      <p class="phrase-chinese">
+        ${chinese}
+      </p>
+
+      ${
+        pinyin
+          ? `
+            <p class="phrase-pinyin">
+              ${pinyin}
+            </p>
+          `
+          : ""
+      }
+
+      ${
+        pronunciation
+          ? `
+            <p class="phrase-korean-pronunciation">
+              ${pronunciation}
+            </p>
+          `
+          : ""
+      }
+
+      ${
+        note
+          ? `
+            <p class="phrase-note">
+              ${note}
+            </p>
+          `
+          : ""
+      }
+
+      <div class="phrase-actions">
+
+        <button
+          type="button"
+          class="phrase-action-btn phrase-listen-btn"
+        >
+          🔊 듣기
+        </button>
+
+        <button
+          type="button"
+          class="phrase-action-btn phrase-copy-btn"
+        >
+          📋 복사
+        </button>
+
+      </div>
+
+    `;
+
+
+    article
+      .querySelector(".phrase-listen-btn")
+      .addEventListener(
+        "click",
+        () => speakPhrase(item["중국어"])
+      );
+
+
+    article
+      .querySelector(".phrase-copy-btn")
+      .addEventListener(
+        "click",
+        () => copyPhrase(item)
+      );
+
+
+    return article;
+
+  }
+
+
+
+  /* =========================
+     화면 출력
+  ========================= */
+
+  function renderWebPhrases(items) {
+
+    const phraseList =
+      document.querySelector("#phraseList");
+
+    if (!phraseList) {
+      return;
+    }
+
+
+    /* 기존 data.js 회화 삭제 */
+    phraseList.innerHTML = "";
+
+
+    /* 기존 탭이 있으면 삭제 */
+    document
+      .querySelector("#phraseCategoryTabs")
+      ?.remove();
+
+
+    /* 시트에 적힌 순서대로 카테고리 생성 */
+    const categories = [];
+
+    items.forEach(item => {
+
+      const category =
+        item["구분"] || "기타";
+
+      if (!categories.includes(category)) {
+        categories.push(category);
+      }
+
+    });
+
+
+    const allCategories =
+      ["전체", ...categories];
+
+
+    /* 탭 만들기 */
+    const tabs =
+      document.createElement("div");
+
+    tabs.id =
+      "phraseCategoryTabs";
+
+    tabs.className =
+      "phrase-tabs";
+
+
+    allCategories.forEach((category, index) => {
+
+      const button =
+        document.createElement("button");
+
+      button.type =
+        "button";
+
+      button.className =
+        `phrase-tab ${index === 0 ? "active" : ""}`;
+
+      button.textContent =
+        category;
+
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          tabs
+            .querySelectorAll(".phrase-tab")
+            .forEach(tab =>
+              tab.classList.remove("active")
+            );
+
+          button
+            .classList
+            .add("active");
+
+
+          drawCards(category);
+
+        }
+      );
+
+
+      tabs.appendChild(button);
+
+    });
+
+
+    phraseList.before(tabs);
+
+
+
+    /* 카드 그리기 */
+    function drawCards(category) {
+
+      phraseList.innerHTML = "";
+
+
+      const filtered =
+        category === "전체"
+          ? items
+          : items.filter(
+              item =>
+                (item["구분"] || "기타") === category
+            );
+
+
+      filtered.forEach(item => {
+
+        phraseList.appendChild(
+          createPhraseCard(item)
+        );
+
+      });
+
+    }
+
+
+    drawCards("전체");
+
+  }
+
+
+
+  /* =========================
+     Google Sheets 불러오기
+  ========================= */
+
+  async function loadWebPhrases() {
+
+    try {
+
+      const separator =
+        PHRASES_URL.includes("?")
+          ? "&"
+          : "?";
+
+
+      const response =
+        await fetch(
+          `${PHRASES_URL}${separator}v=${Date.now()}`,
+          {
+            cache: "no-store"
+          }
+        );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          `HTTP ${response.status}`
+        );
+
+      }
+
+
+      const text =
+        await response.text();
+
+
+      const items =
+        parsePhrasesCSV(text);
+
+
+      if (!items.length) {
+
+        console.log(
+          "WEB_PHRASES 데이터가 없습니다."
+        );
+
+        return;
+
+      }
+
+
+      addPhraseStyles();
+
+      renderWebPhrases(items);
+
+
+    } catch (error) {
+
+      console.error(
+        "WEB_PHRASES 불러오기 실패:",
+        error
+      );
+
+    }
+
+  }
+
+
+
+  /* 기존 app.js 초기화가 끝난 뒤 실행 */
+  window.addEventListener(
+    "load",
+    () => {
+
+      setTimeout(
+        loadWebPhrases,
+        300
+      );
+
+    }
+  );
+
+})();
