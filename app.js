@@ -3913,3 +3913,1131 @@ if(
 
   document.head.appendChild(style);
 })();
+/* =========================================================
+   TRIP_PREP · 여행 준비 & 쇼핑
+   ========================================================= */
+
+(async function () {
+
+  const url =
+    window.TRIP_CONFIG?.tripPrepCsvUrl;
+
+  if (!url) {
+    console.log("tripPrepCsvUrl이 없습니다.");
+    return;
+  }
+
+
+  /* =========================
+     준비 페이지 생성
+  ========================= */
+
+  let prepView =
+    document.getElementById("prep");
+
+  if (!prepView) {
+
+    prepView =
+      document.createElement("section");
+
+    prepView.id = "prep";
+    prepView.className = "view";
+
+    prepView.innerHTML = `
+
+      <div class="section-head">
+
+        <div>
+          <p class="eyebrow">
+            TRIP CHECK
+          </p>
+
+          <h2>
+            여행 준비 & 쇼핑
+          </h2>
+
+          <p class="muted">
+            출국 전 준비부터 꼭 사올 것들까지
+          </p>
+        </div>
+
+      </div>
+
+      <div
+        id="prepTabs"
+        class="prep-tabs"
+      ></div>
+
+      <div
+        id="prepProgress"
+        class="prep-progress"
+      ></div>
+
+      <div
+        id="prepList"
+        class="prep-list"
+      ></div>
+
+    `;
+
+
+    const main =
+      document.querySelector("main");
+
+    if (main) {
+
+      main.appendChild(prepView);
+
+    } else {
+
+      document.body.appendChild(prepView);
+
+    }
+
+  }
+
+
+  /* =========================
+     showView 확장
+  ========================= */
+
+  const originalShowView =
+    showView;
+
+  showView =
+    function (id) {
+
+      if (id === "prep") {
+
+        document
+          .querySelectorAll(".view")
+          .forEach(view => {
+
+            view.classList.toggle(
+              "active",
+              view.id === "prep"
+            );
+
+          });
+
+
+        document
+          .querySelectorAll(
+            ".bottom-nav button"
+          )
+          .forEach(button => {
+
+            button.classList.remove(
+              "active"
+            );
+
+          });
+
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+
+        return;
+
+      }
+
+
+      prepView.classList.remove(
+        "active"
+      );
+
+      originalShowView(id);
+
+    };
+
+
+  /* =========================
+     하단 가이드 → 장소 가이드
+  ========================= */
+
+  const guideNav =
+    document.querySelector(
+      '.bottom-nav button[data-target="guide"]'
+    );
+
+  if (guideNav) {
+
+    const children =
+      [...guideNav.querySelectorAll("*")];
+
+    const label =
+      children.find(
+        el =>
+          el.textContent.trim() === "가이드"
+      );
+
+    if (label) {
+
+      label.textContent =
+        "장소 가이드";
+
+    } else {
+
+      const walker =
+        document.createTreeWalker(
+          guideNav,
+          NodeFilter.SHOW_TEXT
+        );
+
+      while (walker.nextNode()) {
+
+        if (
+          walker.currentNode
+            .nodeValue
+            .trim() === "가이드"
+        ) {
+
+          walker.currentNode.nodeValue =
+            "장소 가이드";
+
+          break;
+        }
+
+      }
+
+    }
+
+  }
+
+
+  /* =========================
+     홈 장소가이드 카드 →
+     여행 준비 & 쇼핑
+  ========================= */
+
+  const home =
+    document.getElementById("home");
+
+  if (home) {
+
+    const candidates =
+      [
+        ...home.querySelectorAll(
+          "button, a, .card"
+        )
+      ];
+
+
+    const oldGuideCard =
+      candidates.find(el => {
+
+        const text =
+          el.textContent
+            .replace(/\s+/g, " ")
+            .trim();
+
+        return (
+          text.includes("장소") &&
+          text.includes("가이드")
+        );
+
+      });
+
+
+    if (oldGuideCard) {
+
+      /*
+        기존 data-target 제거
+      */
+
+      oldGuideCard
+        .removeAttribute(
+          "data-target"
+        );
+
+
+      /*
+        내부 제목 변경
+      */
+
+      const headings =
+        [
+          ...oldGuideCard
+            .querySelectorAll(
+              "h2, h3, strong"
+            )
+        ];
+
+
+      const heading =
+        headings.find(el =>
+          el.textContent.includes(
+            "장소"
+          )
+        );
+
+
+      if (heading) {
+
+        heading.textContent =
+          "🧳 여행 준비 & 쇼핑";
+
+      }
+
+
+      /*
+        설명 변경
+      */
+
+      const paragraph =
+        oldGuideCard
+          .querySelector("p");
+
+      if (paragraph) {
+
+        paragraph.textContent =
+          "출국 전 준비부터 꼭 사올 것들까지";
+
+      }
+
+
+      /*
+        클릭시 준비 페이지
+      */
+
+      oldGuideCard.style.cursor =
+        "pointer";
+
+      oldGuideCard.onclick =
+        event => {
+
+          event.preventDefault();
+          showView("prep");
+
+        };
+
+    }
+
+  }
+
+
+  /* =========================
+     CSV 불러오기
+  ========================= */
+
+  let text = "";
+
+  try {
+
+    const separator =
+      url.includes("?")
+        ? "&"
+        : "?";
+
+    const response =
+      await fetch(
+        `${url}${separator}v=${Date.now()}`,
+        {
+          cache: "no-store"
+        }
+      );
+
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+    }
+
+
+    text =
+      await response.text();
+
+  } catch (error) {
+
+    console.error(
+      "TRIP_PREP 불러오기 실패",
+      error
+    );
+
+    return;
+
+  }
+
+
+  const rows =
+    parseCSV(text);
+
+  if (!rows.length) {
+    return;
+  }
+
+
+  const headers =
+    rows[0].map(
+      normalizeHeader
+    );
+
+
+  const iDone =
+    getIndex(
+      headers,
+      "완료"
+    );
+
+  const iList =
+    getIndex(
+      headers,
+      "목록"
+    );
+
+  const iCategory =
+    getIndex(
+      headers,
+      "분류"
+    );
+
+  const iItem =
+    getIndex(
+      headers,
+      "항목"
+    );
+
+  const iPlace =
+    getIndex(
+      headers,
+      "준비기한·구매장소",
+      "준비기한구매장소"
+    );
+
+  const iMemo =
+    getIndex(
+      headers,
+      "메모"
+    );
+
+
+  const items =
+    rows
+      .slice(1)
+      .map((row, index) => {
+
+        return {
+
+          id:
+            `prep-${index}`,
+
+          done:
+            String(
+              row[iDone] || ""
+            )
+              .trim()
+              .toUpperCase()
+              === "TRUE",
+
+          list:
+            String(
+              row[iList] || ""
+            ).trim(),
+
+          category:
+            String(
+              row[iCategory] || ""
+            ).trim(),
+
+          item:
+            String(
+              row[iItem] || ""
+            ).trim(),
+
+          place:
+            iPlace >= 0
+              ? String(
+                  row[iPlace] || ""
+                ).trim()
+              : "",
+
+          memo:
+            iMemo >= 0
+              ? String(
+                  row[iMemo] || ""
+                ).trim()
+              : ""
+
+        };
+
+      })
+      .filter(
+        item => item.item
+      );
+
+
+  /* =========================
+     로컬 체크 상태
+  ========================= */
+
+  const storageKey =
+    "taiwanTripPrepChecks";
+
+
+  let savedChecks = {};
+
+  try {
+
+    savedChecks =
+      JSON.parse(
+        localStorage.getItem(
+          storageKey
+        ) || "{}"
+      );
+
+  } catch {
+
+    savedChecks = {};
+
+  }
+
+
+  items.forEach(item => {
+
+    if (
+      savedChecks[item.id] !== undefined
+    ) {
+
+      item.done =
+        savedChecks[item.id];
+
+    }
+
+  });
+
+
+  /* =========================
+     카테고리 탭
+  ========================= */
+
+  const labelMap = {
+
+    "전체":
+      "전체",
+
+    "준비물":
+      "여행 전 준비",
+
+    "구매리스트":
+      "꼭 사올 것들",
+
+    "현지에서 할 일":
+      "현지에서 할 일"
+
+  };
+
+
+  const categories =
+    [
+      "전체",
+      ...new Set(
+        items.map(
+          item => item.list
+        )
+      )
+    ];
+
+
+  let selected =
+    "전체";
+
+
+  const tabs =
+    document.getElementById(
+      "prepTabs"
+    );
+
+  const list =
+    document.getElementById(
+      "prepList"
+    );
+
+  const progress =
+    document.getElementById(
+      "prepProgress"
+    );
+
+
+  /* =========================
+     화면 그리기
+  ========================= */
+
+  function renderPrep() {
+
+    tabs.innerHTML = "";
+
+
+    categories
+      .forEach(category => {
+
+        const button =
+          document.createElement(
+            "button"
+          );
+
+        button.type =
+          "button";
+
+        button.className =
+          `prep-tab ${
+            category === selected
+              ? "active"
+              : ""
+          }`;
+
+        button.textContent =
+          labelMap[category]
+          || category;
+
+
+        button.onclick =
+          () => {
+
+            selected =
+              category;
+
+            renderPrep();
+
+          };
+
+
+        tabs.appendChild(
+          button
+        );
+
+      });
+
+
+    const filtered =
+      selected === "전체"
+
+        ? items
+
+        : items.filter(
+            item =>
+              item.list === selected
+          );
+
+
+    const completeCount =
+      filtered.filter(
+        item => item.done
+      ).length;
+
+
+    progress.innerHTML = `
+
+      <div class="prep-progress-text">
+
+        <strong>
+          ${completeCount}
+          /
+          ${filtered.length}
+        </strong>
+
+        완료
+
+      </div>
+
+      <div class="prep-progress-bar">
+
+        <span
+          style="
+            width:${
+              filtered.length
+                ? (
+                    completeCount
+                    /
+                    filtered.length
+                    *
+                    100
+                  )
+                : 0
+            }%
+          "
+        ></span>
+
+      </div>
+
+    `;
+
+
+    list.innerHTML = "";
+
+
+    filtered.forEach(item => {
+
+      const card =
+        document.createElement(
+          "article"
+        );
+
+      card.className =
+        `card prep-item ${
+          item.done
+            ? "done"
+            : ""
+        }`;
+
+
+      card.innerHTML = `
+
+        <label class="prep-check-row">
+
+          <input
+            type="checkbox"
+            ${
+              item.done
+                ? "checked"
+                : ""
+            }
+          >
+
+          <span
+            class="prep-checkbox"
+          ></span>
+
+          <div
+            class="prep-content"
+          >
+
+            <div
+              class="prep-top"
+            >
+
+              ${
+                item.category
+                  ? `
+                    <span
+                      class="prep-category"
+                    >
+                      ${item.category}
+                    </span>
+                  `
+                  : ""
+              }
+
+              ${
+                item.list
+                  ? `
+                    <span
+                      class="prep-list-label"
+                    >
+                      ${
+                        labelMap[
+                          item.list
+                        ]
+                        || item.list
+                      }
+                    </span>
+                  `
+                  : ""
+              }
+
+            </div>
+
+
+            <h3>
+              ${item.item}
+            </h3>
+
+
+            ${
+              item.place
+                ? `
+                  <p class="prep-place">
+                    📍 ${item.place}
+                  </p>
+                `
+                : ""
+            }
+
+
+            ${
+              item.memo
+                ? `
+                  <p class="prep-memo">
+                    ${item.memo}
+                  </p>
+                `
+                : ""
+            }
+
+          </div>
+
+        </label>
+
+      `;
+
+
+      const checkbox =
+        card.querySelector(
+          'input[type="checkbox"]'
+        );
+
+
+      checkbox.addEventListener(
+        "change",
+        () => {
+
+          item.done =
+            checkbox.checked;
+
+
+          savedChecks[item.id] =
+            item.done;
+
+
+          localStorage.setItem(
+            storageKey,
+            JSON.stringify(
+              savedChecks
+            )
+          );
+
+
+          renderPrep();
+
+        }
+      );
+
+
+      list.appendChild(
+        card
+      );
+
+    });
+
+  }
+
+
+  renderPrep();
+
+
+  /* =========================
+     스타일
+  ========================= */
+
+  if (
+    !document.getElementById(
+      "tripPrepCss"
+    )
+  ) {
+
+    const style =
+      document.createElement(
+        "style"
+      );
+
+    style.id =
+      "tripPrepCss";
+
+
+    style.textContent = `
+
+      #prep {
+        padding-bottom: 100px;
+      }
+
+
+      .prep-tabs {
+        display: flex;
+        gap: 8px;
+
+        overflow-x: auto;
+
+        margin: 18px 0 18px;
+
+        padding-bottom: 4px;
+
+        scrollbar-width: none;
+      }
+
+
+      .prep-tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+
+      .prep-tab {
+        flex: 0 0 auto;
+
+        border: 0;
+
+        border-radius: 999px;
+
+        padding: 9px 14px;
+
+        background:
+          rgba(31,95,82,.08);
+
+        color:
+          #1f5f52;
+
+        font-size: 13px;
+
+        font-weight: 700;
+      }
+
+
+      .prep-tab.active {
+        background:
+          #1f5f52;
+
+        color:
+          white;
+      }
+
+
+      .prep-progress {
+        margin-bottom: 18px;
+      }
+
+
+      .prep-progress-text {
+        display: flex;
+
+        gap: 5px;
+
+        align-items: center;
+
+        margin-bottom: 8px;
+
+        font-size: 13px;
+
+        color: #756d65;
+      }
+
+
+      .prep-progress-text strong {
+        color: #1f5f52;
+      }
+
+
+      .prep-progress-bar {
+        width: 100%;
+
+        height: 6px;
+
+        border-radius: 999px;
+
+        overflow: hidden;
+
+        background:
+          rgba(31,95,82,.09);
+      }
+
+
+      .prep-progress-bar span {
+        display: block;
+
+        height: 100%;
+
+        border-radius: inherit;
+
+        background:
+          #1f5f52;
+
+        transition:
+          width .25s ease;
+      }
+
+
+      .prep-list {
+        display: grid;
+
+        gap: 12px;
+      }
+
+
+      .prep-item {
+        padding: 0;
+        overflow: hidden;
+      }
+
+
+      .prep-check-row {
+        display: flex;
+
+        align-items: flex-start;
+
+        gap: 13px;
+
+        width: 100%;
+
+        padding: 17px 18px;
+
+        box-sizing: border-box;
+
+        cursor: pointer;
+      }
+
+
+      .prep-check-row input {
+        position: absolute;
+
+        opacity: 0;
+
+        pointer-events: none;
+      }
+
+
+      .prep-checkbox {
+        display: flex;
+
+        flex: 0 0 23px;
+
+        width: 23px;
+
+        height: 23px;
+
+        align-items: center;
+
+        justify-content: center;
+
+        margin-top: 1px;
+
+        border:
+          1.5px solid
+          rgba(31,95,82,.35);
+
+        border-radius: 7px;
+
+        background: white;
+      }
+
+
+      .prep-item.done
+      .prep-checkbox {
+
+        background:
+          #1f5f52;
+
+        border-color:
+          #1f5f52;
+      }
+
+
+      .prep-item.done
+      .prep-checkbox::after {
+
+        content: "✓";
+
+        color: white;
+
+        font-size: 14px;
+
+        font-weight: 800;
+      }
+
+
+      .prep-content {
+        min-width: 0;
+
+        flex: 1;
+      }
+
+
+      .prep-top {
+        display: flex;
+
+        align-items: center;
+
+        flex-wrap: wrap;
+
+        gap: 6px;
+
+        margin-bottom: 6px;
+      }
+
+
+      .prep-category,
+      .prep-list-label {
+
+        display: inline-flex;
+
+        width: fit-content;
+
+        border-radius: 999px;
+
+        padding: 4px 8px;
+
+        font-size: 11px;
+
+        font-weight: 700;
+      }
+
+
+      .prep-category {
+        background:
+          rgba(0,0,0,.05);
+
+        color:
+          #6f675f;
+      }
+
+
+      .prep-list-label {
+        background:
+          rgba(31,95,82,.08);
+
+        color:
+          #1f5f52;
+      }
+
+
+      .prep-content h3 {
+        margin: 0;
+
+        font-size: 16px;
+
+        line-height: 1.45;
+      }
+
+
+      .prep-place {
+        margin: 7px 0 0;
+
+        font-size: 13px;
+
+        color:
+          #625a53;
+      }
+
+
+      .prep-memo {
+        margin: 5px 0 0;
+
+        font-size: 13px;
+
+        line-height: 1.5;
+
+        color:
+          #827970;
+      }
+
+
+      .prep-item.done {
+        opacity: .55;
+      }
+
+
+      .prep-item.done h3 {
+        text-decoration:
+          line-through;
+      }
+
+    `;
+
+
+    document.head
+      .appendChild(
+        style
+      );
+
+  }
+
+})();
