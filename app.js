@@ -4,12 +4,28 @@ const views = [...document.querySelectorAll(".view")];
 let placeGuideData = [];
 let expenseData = null;
 
-function showView(id){
-  views.forEach(v=>v.classList.toggle("active",v.id===id));
 
-  document.querySelectorAll(".bottom-nav button").forEach(
-    b=>b.classList.toggle("active",b.dataset.target===id)
+// ===============================
+// 화면 이동
+// ===============================
+
+function showView(id){
+
+  views.forEach(
+    v=>v.classList.toggle(
+      "active",
+      v.id===id
+    )
   );
+
+  document
+    .querySelectorAll(".bottom-nav button")
+    .forEach(
+      b=>b.classList.toggle(
+        "active",
+        b.dataset.target===id
+      )
+    );
 
   window.scrollTo({
     top:0,
@@ -17,12 +33,17 @@ function showView(id){
   });
 }
 
-document.querySelectorAll("[data-target]").forEach(
-  b=>b.addEventListener(
-    "click",
-    ()=>showView(b.dataset.target)
-  )
-);
+
+document
+  .querySelectorAll("[data-target]")
+  .forEach(
+    b=>b.addEventListener(
+      "click",
+      ()=>showView(
+        b.dataset.target
+      )
+    )
+  );
 
 
 // ===============================
@@ -37,47 +58,76 @@ function parseCSV(text){
   let field="";
   let q=false;
 
-  for(let i=0;i<text.length;i++){
+
+  for(
+    let i=0;
+    i<text.length;
+    i++
+  ){
 
     const c=text[i];
     const n=text[i+1];
 
+
     if(c === '"'){
 
-      if(q && n === '"'){
+      if(
+        q
+        && n === '"'
+      ){
+
         field+='"';
         i++;
 
       }else{
+
         q=!q;
+
       }
 
-    }else if(c === ',' && !q){
-
-      row.push(field);
-      field="";
 
     }else if(
-      (c === '\n' || c === '\r')
+      c === ","
       && !q
     ){
 
-      if(c === '\r' && n === '\n'){
+      row.push(field);
+      field="";
+
+
+    }else if(
+      (
+        c === "\n"
+        || c === "\r"
+      )
+      && !q
+    ){
+
+      if(
+        c === "\r"
+        && n === "\n"
+      ){
         i++;
       }
 
+
       row.push(field);
       field="";
+
 
       if(
         row.some(
           v=>v.trim()!==""
         )
       ){
+
         rows.push(row);
+
       }
 
+
       row=[];
+
 
     }else{
 
@@ -87,21 +137,30 @@ function parseCSV(text){
 
   }
 
-  if(field.length || row.length){
+
+  if(
+    field.length
+    || row.length
+  ){
 
     row.push(field);
+
 
     if(
       row.some(
         v=>v.trim()!==""
       )
     ){
+
       rows.push(row);
+
     }
 
   }
 
+
   return rows;
+
 }
 
 
@@ -115,14 +174,20 @@ function normalizeHeader(h){
 }
 
 
-function getIndex(headers,...names){
+function getIndex(
+  headers,
+  ...names
+){
 
-  for(const name of names){
+  for(
+    const name of names
+  ){
 
     const i=
       headers.indexOf(
         normalizeHeader(name)
       );
+
 
     if(i>=0){
       return i;
@@ -130,12 +195,14 @@ function getIndex(headers,...names){
 
   }
 
+
   return -1;
+
 }
 
 
 // ===============================
-// 일정
+// 일정 데이터
 // ===============================
 
 function scheduleFromRows(rows){
@@ -144,10 +211,12 @@ function scheduleFromRows(rows){
     return [];
   }
 
+
   const headers=
     rows[0].map(
       normalizeHeader
     );
+
 
   const iDate=
     getIndex(
@@ -254,6 +323,7 @@ function scheduleFromRows(rows){
           /(\d+)/
         );
 
+
       const day=
         m
           ? Number(m[1])
@@ -283,7 +353,9 @@ function scheduleFromRows(rows){
       let isoDate=date;
 
 
-      if(parts.length===3){
+      if(
+        parts.length===3
+      ){
 
         isoDate=
           `${parts[0]}-`
@@ -302,9 +374,11 @@ function scheduleFromRows(rows){
           {
             day,
             date:isoDate,
+
             city:
               (r[iCity]||"")
                 .trim(),
+
             dayTitle:"",
             title:"",
             items:[]
@@ -347,7 +421,8 @@ function scheduleFromRows(rows){
       ){
 
         bits.push(
-          (r[iMove]||"").trim()
+          (r[iMove]||"")
+            .trim()
         );
 
       }
@@ -359,7 +434,8 @@ function scheduleFromRows(rows){
       ){
 
         bits.push(
-          (r[iMemo]||"").trim()
+          (r[iMemo]||"")
+            .trim()
         );
 
       }
@@ -398,9 +474,11 @@ function scheduleFromRows(rows){
   return [
     ...grouped.values()
   ]
+
     .sort(
       (a,b)=>a.day-b.day
     )
+
     .map(g=>{
 
       const names=
@@ -413,9 +491,11 @@ function scheduleFromRows(rows){
 
       const autoTitle=
         names.length
+
           ? names
               .slice(0,3)
               .join(" · ")
+
           : "일정 준비 중";
 
 
@@ -432,7 +512,7 @@ function scheduleFromRows(rows){
 
 
 // ===============================
-// 장소 가이드
+// 장소 가이드 데이터
 // ===============================
 
 function placeGuideFromRows(rows){
@@ -508,6 +588,7 @@ function placeGuideFromRows(rows){
         (r[iDay]||"")
           .trim();
 
+
       const m=
         dayRaw.match(
           /(\d+)/
@@ -559,6 +640,7 @@ function placeGuideFromRows(rows){
       };
 
     })
+
     .filter(
       x=>x.day && x.name
     );
@@ -567,7 +649,7 @@ function placeGuideFromRows(rows){
 
 
 // ===============================
-// 날짜 / D-DAY
+// 날짜
 // ===============================
 
 function fmtDate(iso){
@@ -589,7 +671,10 @@ function fmtDate(iso){
   }
 
 
-  return `${d.getMonth()+1}/${d.getDate()}`;
+  return (
+    `${d.getMonth()+1}`
+    +`/${d.getDate()}`
+  );
 
 }
 
@@ -626,9 +711,12 @@ function getTripStart(){
 
 
   return firstDay
+
     ? new Date(
-        firstDay.date+"T00:00:00"
+        firstDay.date
+        +"T00:00:00"
       )
+
     : new Date(
         "2026-11-03T00:00:00"
       );
@@ -646,9 +734,12 @@ function getTripEnd(){
 
 
   return lastDay
+
     ? new Date(
-        lastDay.date+"T23:59:59"
+        lastDay.date
+        +"T23:59:59"
       )
+
     : new Date(
         "2026-11-09T23:59:59"
       );
@@ -696,7 +787,7 @@ function getDaysUntil(date){
 
 
 // ===============================
-// 메인 / 전체 일정
+// 홈 / 전체 일정
 // ===============================
 
 function renderAll(){
@@ -706,13 +797,17 @@ function renderAll(){
       "overviewList"
     );
 
+
   const tabs=
     document.getElementById(
       "dayTabs"
     );
 
 
-  if(!overview || !tabs){
+  if(
+    !overview
+    || !tabs
+  ){
     return;
   }
 
@@ -740,8 +835,10 @@ function renderAll(){
   const now=
     new Date();
 
+
   const tripStart=
     getTripStart();
+
 
   const tripEnd=
     getTripEnd();
@@ -752,15 +849,29 @@ function renderAll(){
     && summary
   ){
 
+    // 여행 중
     if(todayDay){
 
       title.textContent=
         `DAY ${todayDay.day} · ${todayDay.title}`;
 
-      summary.textContent=
-        `${fmtDate(todayDay.date)} · ${todayDay.city}`;
+
+      if(
+        todayDay.day===1
+      ){
+
+        summary.textContent=
+          "드디어 여행 당일입니다 ✈️";
+
+      }else{
+
+        summary.textContent=
+          `오늘은 ${todayDay.title}의 날입니다`;
+
+      }
 
 
+    // 여행 전
     }else if(
       now < tripStart
     ){
@@ -771,24 +882,33 @@ function renderAll(){
         );
 
 
-      title.textContent=
+      if(
         diff===0
-          ? "오늘 출국합니다 ✈️"
-          : `출국까지 D-${diff}`;
+      ){
+
+        title.textContent=
+          "오늘 출국합니다 ✈️";
+
+      }else{
+
+        title.textContent=
+          `출국까지 D-${diff}`;
+
+      }
 
 
       summary.textContent=
-        diff===0
-          ? "대만 가족여행 D-DAY"
-          : `대만 가족여행까지 ${diff}일 남았습니다 ✈️`;
+        "대만으로 떠납니다 ✈️";
 
 
+    // 여행 종료
     }else if(
       now > tripEnd
     ){
 
       title.textContent=
         "대만 가족여행 완료";
+
 
       summary.textContent=
         "즐거운 여행이었기를 바랍니다 🇹🇼";
@@ -798,6 +918,7 @@ function renderAll(){
 
       title.textContent=
         "오늘 일정 확인";
+
 
       summary.textContent=
         "오늘의 여행 일정을 확인해보세요.";
@@ -869,11 +990,15 @@ function renderAll(){
     b.textContent=
       `DAY ${d.day}`;
 
+
     b.dataset.day=
       d.day;
 
+
     b.onclick=
-      ()=>renderDay(d.day);
+      ()=>renderDay(
+        d.day
+      );
 
 
     tabs.appendChild(
@@ -896,6 +1021,7 @@ function renderAll(){
       showView(
         "schedule"
       );
+
 
       renderDay(
         todayDay?.day
@@ -943,8 +1069,9 @@ function renderDay(dayNo){
       b=>
         b.classList.toggle(
           "active",
-          Number(b.dataset.day)
-          === d.day
+          Number(
+            b.dataset.day
+          )===d.day
         )
     );
 
@@ -1007,8 +1134,7 @@ function renderDay(dayNo){
               <p>
                 Google Sheets에
                 일정을 추가하면
-                새로고침 후
-                자동 반영됩니다.
+                새로고침 후 자동 반영됩니다.
               </p>
 
             </div>
@@ -1033,9 +1159,11 @@ function renderDay(dayNo){
       >
 
         <p class="eyebrow">
+
           DAY ${d.day}
           ·
           ${fmtDate(d.date)}
+
         </p>
 
         <h2>
@@ -1047,6 +1175,7 @@ function renderDay(dayNo){
         </p>
 
       </article>
+
 
       <div class="timeline">
 
@@ -1062,10 +1191,12 @@ function renderDay(dayNo){
 
 
 // ===============================
-// 장소 가이드 표시
+// 장소 가이드
 // ===============================
 
-function renderPlaceGuide(selectedDay){
+function renderPlaceGuide(
+  selectedDay
+){
 
   const guideList=
     document.getElementById(
@@ -1119,9 +1250,12 @@ function renderPlaceGuide(selectedDay){
 
   const day=
     selectedDay
-    && days.includes(selectedDay)
+    && days.includes(
+      selectedDay
+    )
 
       ? selectedDay
+
       : days[0];
 
 
@@ -1148,9 +1282,11 @@ function renderPlaceGuide(selectedDay){
 
   const cards=
     placeGuideData
+
       .filter(
         x=>x.day===day
       )
+
       .map(g=>`
 
         <article
@@ -1193,11 +1329,13 @@ function renderPlaceGuide(selectedDay){
             g.intro
 
               ? `
+
                 <p>
                   <strong>
                     ${g.intro}
                   </strong>
                 </p>
+
               `
 
               : ""
@@ -1208,9 +1346,11 @@ function renderPlaceGuide(selectedDay){
             g.description
 
               ? `
+
                 <p>
                   ${g.description}
                 </p>
+
               `
 
               : ""
@@ -1274,9 +1414,7 @@ function renderPlaceGuide(selectedDay){
                   target="_blank"
                   rel="noopener"
                 >
-
                   지도 열기
-
                 </a>
 
               `
@@ -1304,8 +1442,7 @@ function renderPlaceGuide(selectedDay){
 
     <div
       style="height:12px"
-    >
-    </div>
+    ></div>
 
 
     ${cards}
@@ -1387,9 +1524,12 @@ function expenseFromRows(rows){
 
   let exchangeRate=0;
 
+
   let totalBudget=
-    window.TRIP_CONFIG?.totalBudget
+    window.TRIP_CONFIG
+      ?.totalBudget
     || 5000000;
+
 
   let sheetSpent=0;
   let sheetRemaining=0;
@@ -1477,23 +1617,29 @@ function expenseFromRows(rows){
 
 
       return (
+
         headers.includes(
           normalizeHeader(
             "날짜"
           )
         )
+
         &&
+
         headers.includes(
           normalizeHeader(
             "항목"
           )
         )
+
         &&
+
         headers.includes(
           normalizeHeader(
             "최종지출"
           )
         )
+
       );
 
     });
@@ -1593,9 +1739,11 @@ function expenseFromRows(rows){
 
   const items=
     rows
+
       .slice(
         headerRowIndex+1
       )
+
       .map(r=>({
 
         date:
@@ -1657,6 +1805,7 @@ function expenseFromRows(rows){
             : ""
 
       }))
+
       .filter(
         x=>x.item
       );
@@ -1712,14 +1861,19 @@ function renderExpenses(){
 
 
   let expenseView=
+
     document.getElementById(
       "expense"
     )
+
     ||
+
     document.getElementById(
       "expenses"
     )
+
     ||
+
     document.getElementById(
       "budget"
     );
@@ -1946,7 +2100,9 @@ function renderExpenses(){
           margin-bottom:18px;
         "
       >
+
         지출 현황
+
       </h2>
 
 
@@ -1976,7 +2132,9 @@ function renderExpenses(){
                 margin-bottom:5px;
               "
             >
+
               총 예산
+
             </div>
 
 
@@ -2006,7 +2164,9 @@ function renderExpenses(){
                 margin-bottom:5px;
               "
             >
+
               현재 대만 환율
+
             </div>
 
 
@@ -2156,16 +2316,100 @@ function renderExpenses(){
 
 
 // ===============================
+// 중국어 음성
+// ===============================
+
+function speakChinese(text){
+
+  if(
+    !("speechSynthesis" in window)
+  ){
+
+    alert(
+      "이 기기에서는 음성 재생을 지원하지 않습니다."
+    );
+
+    return;
+
+  }
+
+
+  window
+    .speechSynthesis
+    .cancel();
+
+
+  const utterance=
+    new SpeechSynthesisUtterance(
+      text
+    );
+
+
+  utterance.lang=
+    "zh-TW";
+
+
+  utterance.rate=
+    0.85;
+
+
+  utterance.pitch=
+    1;
+
+
+  const voices=
+    window
+      .speechSynthesis
+      .getVoices();
+
+
+  const taiwanVoice=
+    voices.find(
+      voice=>
+        voice.lang
+          .toLowerCase()
+          .includes(
+            "zh-tw"
+          )
+    );
+
+
+  if(taiwanVoice){
+
+    utterance.voice=
+      taiwanVoice;
+
+  }
+
+
+  window
+    .speechSynthesis
+    .speak(
+      utterance
+    );
+
+}
+
+
+// ===============================
 // 여행 회화
 // ===============================
 
-const phraseList=
-  document.getElementById(
-    "phraseList"
-  );
+function renderPhrases(){
+
+  const phraseList=
+    document.getElementById(
+      "phraseList"
+    );
 
 
-if(phraseList){
+  if(!phraseList){
+    return;
+  }
+
+
+  phraseList.innerHTML="";
+
 
   (
     data.phrases
@@ -2186,15 +2430,22 @@ if(phraseList){
 
         el.innerHTML=`
 
-          <div>
+          <div
+            style="
+              flex:1;
+              min-width:0;
+            "
+          >
 
             <p class="ko">
               ${ko}
             </p>
 
+
             <div class="zh">
               ${zh}
             </div>
+
 
             <small class="muted">
               ${roman}
@@ -2203,21 +2454,60 @@ if(phraseList){
           </div>
 
 
-          <button
-            class="copy-btn"
+          <div
+            style="
+              display:flex;
+              flex-direction:column;
+              gap:7px;
+              flex-shrink:0;
+            "
           >
-            복사
-          </button>
+
+            <button
+              class="speak-btn"
+              type="button"
+            >
+              🔊 듣기
+            </button>
+
+
+            <button
+              class="copy-btn"
+              type="button"
+            >
+              복사
+            </button>
+
+          </div>
 
         `;
 
 
-        el
-          .querySelector(
-            "button"
-          )
-          .onclick=
-            async e=>{
+        const speakBtn=
+          el.querySelector(
+            ".speak-btn"
+          );
+
+
+        const copyBtn=
+          el.querySelector(
+            ".copy-btn"
+          );
+
+
+        speakBtn.onclick=()=>{
+
+          speakChinese(
+            zh
+          );
+
+        };
+
+
+        copyBtn.onclick=
+          async e=>{
+
+            try{
 
               await navigator
                 .clipboard
@@ -2240,7 +2530,17 @@ if(phraseList){
                 1000
               );
 
-            };
+
+            }catch(err){
+
+              console.warn(
+                "복사 실패",
+                err
+              );
+
+            }
+
+          };
 
 
         phraseList
@@ -2324,6 +2624,7 @@ async function loadAllData(){
 
       }
 
+
     }catch(err){
 
       console.warn(
@@ -2351,6 +2652,7 @@ async function loadAllData(){
         placeGuideFromRows(
           parseCSV(text)
         );
+
 
     }catch(err){
 
@@ -2380,6 +2682,7 @@ async function loadAllData(){
           parseCSV(text)
         );
 
+
     }catch(err){
 
       console.warn(
@@ -2397,6 +2700,8 @@ async function loadAllData(){
   renderPlaceGuide(1);
 
   renderExpenses();
+
+  renderPhrases();
 
 }
 
