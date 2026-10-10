@@ -1170,7 +1170,7 @@ function renderDay(dayNo){
           ${d.title}
         </h2>
 
-        <p class="muted">
+       <p class="day-location-pill">
           ${d.city}
         </p>
 
