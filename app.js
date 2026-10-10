@@ -1,252 +1,666 @@
 const data = window.LOCAL_TRIP_DATA;
 const views = [...document.querySelectorAll(".view")];
+
 let placeGuideData = [];
+let expenseData = null;
 
 function showView(id){
   views.forEach(v=>v.classList.toggle("active",v.id===id));
+
   document.querySelectorAll(".bottom-nav button").forEach(
     b=>b.classList.toggle("active",b.dataset.target===id)
   );
-  window.scrollTo({top:0,behavior:"smooth"});
+
+  window.scrollTo({
+    top:0,
+    behavior:"smooth"
+  });
 }
 
 document.querySelectorAll("[data-target]").forEach(
-  b=>b.addEventListener("click",()=>showView(b.dataset.target))
+  b=>b.addEventListener(
+    "click",
+    ()=>showView(b.dataset.target)
+  )
 );
 
+
+// ===============================
+// CSV 읽기
+// ===============================
+
 function parseCSV(text){
+
   const rows=[];
-  let row=[], field="", q=false;
+
+  let row=[];
+  let field="";
+  let q=false;
 
   for(let i=0;i<text.length;i++){
-    const c=text[i], n=text[i+1];
+
+    const c=text[i];
+    const n=text[i+1];
 
     if(c === '"'){
+
       if(q && n === '"'){
         field+='"';
         i++;
+
       }else{
         q=!q;
       }
+
     }else if(c === ',' && !q){
-      row.push(field);
-      field="";
-    }else if((c === '\n' || c === '\r') && !q){
-      if(c === '\r' && n === '\n') i++;
+
       row.push(field);
       field="";
 
-      if(row.some(v=>v.trim()!=="")){
+    }else if(
+      (c === '\n' || c === '\r')
+      && !q
+    ){
+
+      if(c === '\r' && n === '\n'){
+        i++;
+      }
+
+      row.push(field);
+      field="";
+
+      if(
+        row.some(
+          v=>v.trim()!==""
+        )
+      ){
         rows.push(row);
       }
 
       row=[];
+
     }else{
+
       field+=c;
+
     }
+
   }
 
   if(field.length || row.length){
+
     row.push(field);
 
-    if(row.some(v=>v.trim()!=="")){
+    if(
+      row.some(
+        v=>v.trim()!==""
+      )
+    ){
       rows.push(row);
     }
+
   }
 
   return rows;
 }
 
+
 function normalizeHeader(h){
-  return String(h||"").trim().replace(/\s+/g,"").toLowerCase();
+
+  return String(h||"")
+    .trim()
+    .replace(/\s+/g,"")
+    .toLowerCase();
+
 }
 
+
 function getIndex(headers,...names){
+
   for(const name of names){
-    const i=headers.indexOf(normalizeHeader(name));
+
+    const i=
+      headers.indexOf(
+        normalizeHeader(name)
+      );
 
     if(i>=0){
       return i;
     }
+
   }
 
   return -1;
 }
 
+
+// ===============================
+// 일정
+// ===============================
+
 function scheduleFromRows(rows){
+
   if(!rows.length){
     return [];
   }
 
-  const headers=rows[0].map(normalizeHeader);
+  const headers=
+    rows[0].map(
+      normalizeHeader
+    );
 
-  const iDate=getIndex(headers,"날짜");
-  const iDayTitle=getIndex(headers,"DAY 제목","DAY제목","day 제목","day제목");
-  const iDay=getIndex(headers,"DAY","day");
-  const iTime=getIndex(headers,"시간");
-  const iCity=getIndex(headers,"도시");
-  const iType=getIndex(headers,"구분");
-  const iTitle=getIndex(headers,"일정");
-  const iPlace=getIndex(headers,"장소");
-  const iMove=getIndex(headers,"이동수단");
-  const iMemo=getIndex(headers,"메모");
+  const iDate=
+    getIndex(
+      headers,
+      "날짜"
+    );
 
-  const grouped=new Map();
+  const iDayTitle=
+    getIndex(
+      headers,
+      "DAY 제목",
+      "DAY제목",
+      "day 제목",
+      "day제목"
+    );
 
-  rows.slice(1).forEach(r=>{
-    const date=(r[iDate]||"").trim();
-    const dayRaw=(r[iDay]||"").trim();
-    const title=(r[iTitle]||"").trim();
-    const dayTitle=iDayTitle>=0 ? (r[iDayTitle]||"").trim() : "";
+  const iDay=
+    getIndex(
+      headers,
+      "DAY",
+      "day"
+    );
 
-    if(!date && !dayRaw && !title){
-      return;
-    }
+  const iTime=
+    getIndex(
+      headers,
+      "시간"
+    );
 
-    const m=dayRaw.match(/(\d+)/);
-    const day=m ? Number(m[1]) : null;
+  const iCity=
+    getIndex(
+      headers,
+      "도시"
+    );
 
-    if(!day){
-      return;
-    }
+  const iType=
+    getIndex(
+      headers,
+      "구분"
+    );
 
-    const iso=date.replace(/\./g,"/").replace(/-/g,"/");
-    const parts=iso.split("/").map(s=>s.trim()).filter(Boolean);
+  const iTitle=
+    getIndex(
+      headers,
+      "일정"
+    );
 
-    let isoDate=date;
+  const iPlace=
+    getIndex(
+      headers,
+      "장소"
+    );
 
-    if(parts.length===3){
-      isoDate=
-        `${parts[0]}-${String(parts[1]).padStart(2,"0")}-${String(parts[2]).padStart(2,"0")}`;
-    }
+  const iMove=
+    getIndex(
+      headers,
+      "이동수단"
+    );
 
-    if(!grouped.has(day)){
-      grouped.set(day,{
-        day,
-        date:isoDate,
-        city:(r[iCity]||"").trim(),
-        dayTitle:"",
-        title:"",
-        items:[]
+  const iMemo=
+    getIndex(
+      headers,
+      "메모"
+    );
+
+
+  const grouped=
+    new Map();
+
+
+  rows
+    .slice(1)
+    .forEach(r=>{
+
+      const date=
+        (r[iDate]||"")
+          .trim();
+
+      const dayRaw=
+        (r[iDay]||"")
+          .trim();
+
+      const title=
+        (r[iTitle]||"")
+          .trim();
+
+      const dayTitle=
+        iDayTitle>=0
+          ? (r[iDayTitle]||"").trim()
+          : "";
+
+
+      if(
+        !date
+        && !dayRaw
+        && !title
+      ){
+        return;
+      }
+
+
+      const m=
+        dayRaw.match(
+          /(\d+)/
+        );
+
+      const day=
+        m
+          ? Number(m[1])
+          : null;
+
+
+      if(!day){
+        return;
+      }
+
+
+      const iso=
+        date
+          .replace(/\./g,"/")
+          .replace(/-/g,"/");
+
+
+      const parts=
+        iso
+          .split("/")
+          .map(
+            s=>s.trim()
+          )
+          .filter(Boolean);
+
+
+      let isoDate=date;
+
+
+      if(parts.length===3){
+
+        isoDate=
+          `${parts[0]}-`
+          +`${String(parts[1]).padStart(2,"0")}-`
+          +`${String(parts[2]).padStart(2,"0")}`;
+
+      }
+
+
+      if(
+        !grouped.has(day)
+      ){
+
+        grouped.set(
+          day,
+          {
+            day,
+            date:isoDate,
+            city:
+              (r[iCity]||"")
+                .trim(),
+            dayTitle:"",
+            title:"",
+            items:[]
+          }
+        );
+
+      }
+
+
+      const g=
+        grouped.get(day);
+
+
+      if(!g.city){
+
+        g.city=
+          (r[iCity]||"")
+            .trim();
+
+      }
+
+
+      if(
+        !g.dayTitle
+        && dayTitle
+      ){
+
+        g.dayTitle=
+          dayTitle;
+
+      }
+
+
+      const bits=[];
+
+
+      if(
+        iMove>=0
+        && (r[iMove]||"").trim()
+      ){
+
+        bits.push(
+          (r[iMove]||"").trim()
+        );
+
+      }
+
+
+      if(
+        iMemo>=0
+        && (r[iMemo]||"").trim()
+      ){
+
+        bits.push(
+          (r[iMemo]||"").trim()
+        );
+
+      }
+
+
+      g.items.push({
+
+        time:
+          iTime>=0
+            ? (r[iTime]||"").trim()
+            : "",
+
+        title:
+          title
+          || (
+            iType>=0
+              ? (r[iType]||"").trim()
+              : "일정"
+          ),
+
+        place:
+          iPlace>=0
+            ? (r[iPlace]||"").trim()
+            : "",
+
+        note:
+          bits
+            .filter(Boolean)
+            .join(" · ")
+
       });
-    }
 
-    const g=grouped.get(day);
-
-    if(!g.city){
-      g.city=(r[iCity]||"").trim();
-    }
-
-    if(!g.dayTitle && dayTitle){
-      g.dayTitle=dayTitle;
-    }
-
-    const bits=[];
-
-    if(iMove>=0 && (r[iMove]||"").trim()){
-      bits.push((r[iMove]||"").trim());
-    }
-
-    if(iMemo>=0 && (r[iMemo]||"").trim()){
-      bits.push((r[iMemo]||"").trim());
-    }
-
-    g.items.push({
-      time:iTime>=0 ? (r[iTime]||"").trim() : "",
-      title:title || (iType>=0 ? (r[iType]||"").trim() : "일정"),
-      place:iPlace>=0 ? (r[iPlace]||"").trim() : "",
-      note:bits.filter(Boolean).join(" · ")
     });
-  });
 
-  return [...grouped.values()]
-    .sort((a,b)=>a.day-b.day)
+
+  return [
+    ...grouped.values()
+  ]
+    .sort(
+      (a,b)=>a.day-b.day
+    )
     .map(g=>{
-      const names=g.items
-        .map(x=>x.title)
-        .filter(Boolean);
+
+      const names=
+        g.items
+          .map(
+            x=>x.title
+          )
+          .filter(Boolean);
+
 
       const autoTitle=
         names.length
-          ? names.slice(0,3).join(" · ")
+          ? names
+              .slice(0,3)
+              .join(" · ")
           : "일정 준비 중";
 
-      g.title=g.dayTitle || autoTitle;
+
+      g.title=
+        g.dayTitle
+        || autoTitle;
+
 
       return g;
+
     });
+
 }
 
+
+// ===============================
+// 장소 가이드
+// ===============================
+
 function placeGuideFromRows(rows){
+
   if(!rows.length){
     return [];
   }
 
-  const headers=rows[0].map(normalizeHeader);
 
-  const iDay=getIndex(headers,"DAY","day");
-  const iName=getIndex(headers,"장소명");
-  const iIntro=getIndex(headers,"한줄소개");
-  const iDesc=getIndex(headers,"상세설명");
-  const iDuration=getIndex(headers,"체류시간");
-  const iCaution=getIndex(headers,"주의사항");
-  const iMap=getIndex(headers,"지도URL","지도url");
-  const iImage=getIndex(headers,"이미지URL","이미지url");
+  const headers=
+    rows[0].map(
+      normalizeHeader
+    );
 
-  return rows.slice(1).map(r=>{
-    const dayRaw=(r[iDay]||"").trim();
-    const m=dayRaw.match(/(\d+)/);
 
-    return {
-      day:m ? Number(m[1]) : null,
-      name:iName>=0 ? (r[iName]||"").trim() : "",
-      intro:iIntro>=0 ? (r[iIntro]||"").trim() : "",
-      description:iDesc>=0 ? (r[iDesc]||"").trim() : "",
-      duration:iDuration>=0 ? (r[iDuration]||"").trim() : "",
-      caution:iCaution>=0 ? (r[iCaution]||"").trim() : "",
-      mapUrl:iMap>=0 ? (r[iMap]||"").trim() : "",
-      imageUrl:iImage>=0 ? (r[iImage]||"").trim() : ""
-    };
-  }).filter(x=>x.day && x.name);
+  const iDay=
+    getIndex(
+      headers,
+      "DAY",
+      "day"
+    );
+
+  const iName=
+    getIndex(
+      headers,
+      "장소명"
+    );
+
+  const iIntro=
+    getIndex(
+      headers,
+      "한줄소개"
+    );
+
+  const iDesc=
+    getIndex(
+      headers,
+      "상세설명"
+    );
+
+  const iDuration=
+    getIndex(
+      headers,
+      "체류시간"
+    );
+
+  const iCaution=
+    getIndex(
+      headers,
+      "주의사항"
+    );
+
+  const iMap=
+    getIndex(
+      headers,
+      "지도URL",
+      "지도url"
+    );
+
+  const iImage=
+    getIndex(
+      headers,
+      "이미지URL",
+      "이미지url"
+    );
+
+
+  return rows
+    .slice(1)
+    .map(r=>{
+
+      const dayRaw=
+        (r[iDay]||"")
+          .trim();
+
+      const m=
+        dayRaw.match(
+          /(\d+)/
+        );
+
+
+      return {
+
+        day:
+          m
+            ? Number(m[1])
+            : null,
+
+        name:
+          iName>=0
+            ? (r[iName]||"").trim()
+            : "",
+
+        intro:
+          iIntro>=0
+            ? (r[iIntro]||"").trim()
+            : "",
+
+        description:
+          iDesc>=0
+            ? (r[iDesc]||"").trim()
+            : "",
+
+        duration:
+          iDuration>=0
+            ? (r[iDuration]||"").trim()
+            : "",
+
+        caution:
+          iCaution>=0
+            ? (r[iCaution]||"").trim()
+            : "",
+
+        mapUrl:
+          iMap>=0
+            ? (r[iMap]||"").trim()
+            : "",
+
+        imageUrl:
+          iImage>=0
+            ? (r[iImage]||"").trim()
+            : ""
+
+      };
+
+    })
+    .filter(
+      x=>x.day && x.name
+    );
+
 }
+
+
+// ===============================
+// 날짜 / D-DAY
+// ===============================
 
 function fmtDate(iso){
-  const d=new Date(iso+"T12:00:00");
 
-  if(Number.isNaN(d.getTime())){
+  const d=
+    new Date(
+      iso+"T12:00:00"
+    );
+
+
+  if(
+    Number.isNaN(
+      d.getTime()
+    )
+  ){
+
     return iso;
+
   }
 
+
   return `${d.getMonth()+1}/${d.getDate()}`;
+
 }
+
 
 function getTodayDay(){
-  const now=new Date();
+
+  const now=
+    new Date();
+
 
   const localIso=
-    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    `${now.getFullYear()}-`
+    +`${String(now.getMonth()+1).padStart(2,"0")}-`
+    +`${String(now.getDate()).padStart(2,"0")}`;
 
-  return data.days.find(d=>d.date===localIso)||null;
+
+  return (
+    data.days.find(
+      d=>d.date===localIso
+    )
+    || null
+  );
+
 }
+
 
 function getTripStart(){
-  const firstDay=[...data.days].sort((a,b)=>a.day-b.day)[0];
+
+  const firstDay=
+    [...data.days]
+      .sort(
+        (a,b)=>a.day-b.day
+      )[0];
+
 
   return firstDay
-    ? new Date(firstDay.date+"T00:00:00")
-    : new Date("2026-11-03T00:00:00");
+    ? new Date(
+        firstDay.date+"T00:00:00"
+      )
+    : new Date(
+        "2026-11-03T00:00:00"
+      );
+
 }
+
 
 function getTripEnd(){
-  const lastDay=[...data.days].sort((a,b)=>b.day-a.day)[0];
+
+  const lastDay=
+    [...data.days]
+      .sort(
+        (a,b)=>b.day-a.day
+      )[0];
+
 
   return lastDay
-    ? new Date(lastDay.date+"T23:59:59")
-    : new Date("2026-11-09T23:59:59");
+    ? new Date(
+        lastDay.date+"T23:59:59"
+      )
+    : new Date(
+        "2026-11-09T23:59:59"
+      );
+
 }
 
+
 function getDaysUntil(date){
-  const now=new Date();
+
+  const now=
+    new Date();
+
 
   const todayStart=
     new Date(
@@ -255,6 +669,7 @@ function getDaysUntil(date){
       now.getDate()
     );
 
+
   const targetStart=
     new Date(
       date.getFullYear(),
@@ -262,211 +677,491 @@ function getDaysUntil(date){
       date.getDate()
     );
 
+
   return Math.ceil(
-    (targetStart-todayStart)
-    / (1000*60*60*24)
+    (
+      targetStart
+      - todayStart
+    )
+    /
+    (
+      1000
+      * 60
+      * 60
+      * 24
+    )
   );
+
 }
 
+
+// ===============================
+// 메인 / 전체 일정
+// ===============================
+
 function renderAll(){
-  const overview=document.getElementById("overviewList");
-  const tabs=document.getElementById("dayTabs");
+
+  const overview=
+    document.getElementById(
+      "overviewList"
+    );
+
+  const tabs=
+    document.getElementById(
+      "dayTabs"
+    );
+
+
+  if(!overview || !tabs){
+    return;
+  }
+
 
   overview.innerHTML="";
   tabs.innerHTML="";
 
-  const todayDay=getTodayDay();
-  const title=document.getElementById("todayTitle");
-  const summary=document.getElementById("todaySummary");
 
-  const now=new Date();
-  const tripStart=getTripStart();
-  const tripEnd=getTripEnd();
+  const todayDay=
+    getTodayDay();
 
-  if(todayDay){
-    title.textContent=`DAY ${todayDay.day} · ${todayDay.title}`;
-    summary.textContent=`${fmtDate(todayDay.date)} · ${todayDay.city}`;
 
-  }else if(now < tripStart){
-    const diff=getDaysUntil(tripStart);
+  const title=
+    document.getElementById(
+      "todayTitle"
+    );
 
-    title.textContent=
-      diff===0
-        ? "오늘 출국합니다 ✈️"
-        : `출국까지 D-${diff}`;
 
-    summary.textContent=
-      diff===0
-        ? "대만 가족여행 D-DAY"
-        : `대만 가족여행까지 ${diff}일 남았습니다 ✈️`;
+  const summary=
+    document.getElementById(
+      "todaySummary"
+    );
 
-  }else if(now > tripEnd){
-    title.textContent="대만 가족여행 완료";
-    summary.textContent="즐거운 여행이었기를 바랍니다 🇹🇼";
 
-  }else{
-    title.textContent="오늘 일정 확인";
-    summary.textContent="오늘의 여행 일정을 확인해보세요.";
+  const now=
+    new Date();
+
+  const tripStart=
+    getTripStart();
+
+  const tripEnd=
+    getTripEnd();
+
+
+  if(
+    title
+    && summary
+  ){
+
+    if(todayDay){
+
+      title.textContent=
+        `DAY ${todayDay.day} · ${todayDay.title}`;
+
+      summary.textContent=
+        `${fmtDate(todayDay.date)} · ${todayDay.city}`;
+
+
+    }else if(
+      now < tripStart
+    ){
+
+      const diff=
+        getDaysUntil(
+          tripStart
+        );
+
+
+      title.textContent=
+        diff===0
+          ? "오늘 출국합니다 ✈️"
+          : `출국까지 D-${diff}`;
+
+
+      summary.textContent=
+        diff===0
+          ? "대만 가족여행 D-DAY"
+          : `대만 가족여행까지 ${diff}일 남았습니다 ✈️`;
+
+
+    }else if(
+      now > tripEnd
+    ){
+
+      title.textContent=
+        "대만 가족여행 완료";
+
+      summary.textContent=
+        "즐거운 여행이었기를 바랍니다 🇹🇼";
+
+
+    }else{
+
+      title.textContent=
+        "오늘 일정 확인";
+
+      summary.textContent=
+        "오늘의 여행 일정을 확인해보세요.";
+
+    }
+
   }
 
-  data.days.forEach(d=>{
-    const el=document.createElement("button");
 
-    el.className="overview-item card";
+  data.days.forEach(d=>{
+
+    const el=
+      document.createElement(
+        "button"
+      );
+
+
+    el.className=
+      "overview-item card";
+
 
     el.innerHTML=`
+
       <div>
-        <small>DAY ${d.day} · ${fmtDate(d.date)}</small>
-        <strong>${d.title}</strong>
+
+        <small>
+          DAY ${d.day}
+          ·
+          ${fmtDate(d.date)}
+        </small>
+
+        <strong>
+          ${d.title}
+        </strong>
+
       </div>
-      <span>›</span>
+
+      <span>
+        ›
+      </span>
+
     `;
 
+
     el.onclick=()=>{
-      showView("schedule");
-      renderDay(d.day);
+
+      showView(
+        "schedule"
+      );
+
+      renderDay(
+        d.day
+      );
+
     };
 
-    overview.appendChild(el);
 
-    const b=document.createElement("button");
+    overview.appendChild(
+      el
+    );
 
-    b.textContent=`DAY ${d.day}`;
-    b.dataset.day=d.day;
-    b.onclick=()=>renderDay(d.day);
 
-    tabs.appendChild(b);
+    const b=
+      document.createElement(
+        "button"
+      );
+
+
+    b.textContent=
+      `DAY ${d.day}`;
+
+    b.dataset.day=
+      d.day;
+
+    b.onclick=
+      ()=>renderDay(d.day);
+
+
+    tabs.appendChild(
+      b
+    );
+
   });
 
-  document.getElementById("goTodayBtn").onclick=()=>{
-    showView("schedule");
 
-    renderDay(
-      todayDay?.day
-      || data.days[0]?.day
-      || 1
+  const goTodayBtn=
+    document.getElementById(
+      "goTodayBtn"
     );
-  };
+
+
+  if(goTodayBtn){
+
+    goTodayBtn.onclick=()=>{
+
+      showView(
+        "schedule"
+      );
+
+      renderDay(
+        todayDay?.day
+        || data.days[0]?.day
+        || 1
+      );
+
+    };
+
+  }
+
 
   renderDay(
     todayDay?.day
     || data.days[0]?.day
     || 1
   );
+
 }
 
+
+// ===============================
+// DAY 상세 일정
+// ===============================
+
 function renderDay(dayNo){
+
   const d=
-    data.days.find(x=>x.day===dayNo)
+    data.days.find(
+      x=>x.day===dayNo
+    )
     || data.days[0];
+
 
   if(!d){
     return;
   }
 
+
   document
-    .querySelectorAll(".day-tabs button")
+    .querySelectorAll(
+      "#dayTabs button"
+    )
     .forEach(
-      b=>b.classList.toggle(
-        "active",
-        Number(b.dataset.day)===d.day
-      )
+      b=>
+        b.classList.toggle(
+          "active",
+          Number(b.dataset.day)
+          === d.day
+        )
     );
 
-  const items=d.items.length
-    ? d.items.map(i=>`
-      <article class="timeline-item card">
-        <div class="time">${i.time||"—"}</div>
 
-        <div>
-          <h3>${i.title}</h3>
+  const items=
+    d.items.length
 
-          <p>
-            ${i.place||""}
-            ${i.note ? `<br>${i.note}` : ""}
-          </p>
-        </div>
+      ? d.items
+          .map(i=>`
+
+            <article
+              class="timeline-item card"
+            >
+
+              <div class="time">
+                ${i.time||"—"}
+              </div>
+
+              <div>
+
+                <h3>
+                  ${i.title}
+                </h3>
+
+                <p>
+
+                  ${i.place||""}
+
+                  ${
+                    i.note
+                      ? `<br>${i.note}`
+                      : ""
+                  }
+
+                </p>
+
+              </div>
+
+            </article>
+
+          `)
+          .join("")
+
+      : `
+
+          <article
+            class="timeline-item card"
+          >
+
+            <div class="time">
+              —
+            </div>
+
+            <div>
+
+              <h3>
+                일정 준비 중
+              </h3>
+
+              <p>
+                Google Sheets에
+                일정을 추가하면
+                새로고침 후
+                자동 반영됩니다.
+              </p>
+
+            </div>
+
+          </article>
+
+        `;
+
+
+  const dayDetail=
+    document.getElementById(
+      "dayDetail"
+    );
+
+
+  if(dayDetail){
+
+    dayDetail.innerHTML=`
+
+      <article
+        class="day-hero card"
+      >
+
+        <p class="eyebrow">
+          DAY ${d.day}
+          ·
+          ${fmtDate(d.date)}
+        </p>
+
+        <h2>
+          ${d.title}
+        </h2>
+
+        <p class="muted">
+          ${d.city}
+        </p>
+
       </article>
-    `).join("")
-    : `
-      <article class="timeline-item card">
-        <div class="time">—</div>
 
-        <div>
-          <h3>일정 준비 중</h3>
+      <div class="timeline">
 
-          <p>
-            Google Sheets에 일정을 추가하면
-            새로고침 후 자동 반영됩니다.
-          </p>
-        </div>
-      </article>
+        ${items}
+
+      </div>
+
     `;
 
-  document.getElementById("dayDetail").innerHTML=`
-    <article class="day-hero card">
+  }
 
-      <p class="eyebrow">
-        DAY ${d.day} · ${fmtDate(d.date)}
-      </p>
-
-      <h2>${d.title}</h2>
-
-      <p class="muted">${d.city}</p>
-
-    </article>
-
-    <div class="timeline">
-      ${items}
-    </div>
-  `;
 }
 
+
+// ===============================
+// 장소 가이드 표시
+// ===============================
+
 function renderPlaceGuide(selectedDay){
-  const guideList=document.getElementById("guideList");
+
+  const guideList=
+    document.getElementById(
+      "guideList"
+    );
+
 
   if(!guideList){
     return;
   }
 
-  if(!placeGuideData.length){
+
+  if(
+    !placeGuideData.length
+  ){
+
     guideList.innerHTML=`
+
       <article class="card">
-        <h3>장소 가이드 준비 중</h3>
-        <p>PLACE_GUIDE 시트 내용을 불러오지 못했습니다.</p>
+
+        <h3>
+          장소 가이드 준비 중
+        </h3>
+
+        <p>
+          PLACE_GUIDE 시트 내용을
+          불러오지 못했습니다.
+        </p>
+
       </article>
+
     `;
 
     return;
+
   }
 
+
   const days=
-    [...new Set(placeGuideData.map(x=>x.day))]
-      .sort((a,b)=>a-b);
+    [
+      ...new Set(
+        placeGuideData.map(
+          x=>x.day
+        )
+      )
+    ]
+      .sort(
+        (a,b)=>a-b
+      );
+
 
   const day=
-    selectedDay && days.includes(selectedDay)
+    selectedDay
+    && days.includes(selectedDay)
+
       ? selectedDay
       : days[0];
 
-  const tabs=days.map(d=>`
-    <button
-      class="${d===day ? "active" : ""}"
-      data-guide-day="${d}"
-    >
-      DAY ${d}
-    </button>
-  `).join("");
+
+  const tabs=
+    days
+      .map(d=>`
+
+        <button
+          class="${
+            d===day
+              ? "active"
+              : ""
+          }"
+          data-guide-day="${d}"
+        >
+
+          DAY ${d}
+
+        </button>
+
+      `)
+      .join("");
+
 
   const cards=
     placeGuideData
-      .filter(x=>x.day===day)
+      .filter(
+        x=>x.day===day
+      )
       .map(g=>`
-        <article class="guide-card card">
+
+        <article
+          class="guide-card card"
+        >
 
           ${
             g.imageUrl
+
               ? `
+
                 <img
                   src="${g.imageUrl}"
                   alt="${g.name}"
@@ -477,173 +1172,1180 @@ function renderPlaceGuide(selectedDay){
                     margin-bottom:14px;
                   "
                 >
+
               `
+
               : ""
           }
 
-          <p class="eyebrow">DAY ${g.day}</p>
 
-          <h3>${g.name}</h3>
+          <p class="eyebrow">
+            DAY ${g.day}
+          </p>
+
+
+          <h3>
+            ${g.name}
+          </h3>
+
 
           ${
             g.intro
-              ? `<p><strong>${g.intro}</strong></p>`
+
+              ? `
+                <p>
+                  <strong>
+                    ${g.intro}
+                  </strong>
+                </p>
+              `
+
               : ""
           }
+
 
           ${
             g.description
-              ? `<p>${g.description}</p>`
+
+              ? `
+                <p>
+                  ${g.description}
+                </p>
+              `
+
               : ""
           }
+
 
           ${
             g.duration
+
               ? `
+
                 <p>
-                  <strong>체류시간</strong><br>
+
+                  <strong>
+                    체류시간
+                  </strong>
+
+                  <br>
+
                   ${g.duration}
+
                 </p>
+
               `
+
               : ""
           }
+
 
           ${
             g.caution
+
               ? `
+
                 <p>
-                  <strong>주의사항</strong><br>
+
+                  <strong>
+                    주의사항
+                  </strong>
+
+                  <br>
+
                   ${g.caution}
+
                 </p>
+
               `
+
               : ""
           }
 
+
           ${
             g.mapUrl
+
               ? `
+
                 <a
                   class="secondary"
                   href="${g.mapUrl}"
                   target="_blank"
                   rel="noopener"
                 >
+
                   지도 열기
+
                 </a>
+
               `
+
               : ""
           }
 
         </article>
-      `).join("");
+
+      `)
+      .join("");
+
 
   guideList.innerHTML=`
+
     <div
       class="day-tabs"
       id="guideDayTabs"
     >
+
       ${tabs}
+
     </div>
 
-    <div style="height:12px"></div>
+
+    <div
+      style="height:12px"
+    >
+    </div>
+
 
     ${cards}
+
   `;
 
+
   guideList
-    .querySelectorAll("[data-guide-day]")
+    .querySelectorAll(
+      "[data-guide-day]"
+    )
     .forEach(btn=>{
+
       btn.addEventListener(
         "click",
         ()=>renderPlaceGuide(
-          Number(btn.dataset.guideDay)
+          Number(
+            btn.dataset.guideDay
+          )
         )
       );
+
     });
+
 }
 
-const phraseList=document.getElementById("phraseList");
 
-(data.phrases||[]).forEach(([ko,zh,roman])=>{
-  const el=document.createElement("article");
+// ===============================
+// 지출
+// ===============================
 
-  el.className="phrase-card card";
+function moneyNumber(value){
 
-  el.innerHTML=`
-    <div>
-      <p class="ko">${ko}</p>
-      <div class="zh">${zh}</div>
-      <small class="muted">${roman}</small>
-    </div>
-
-    <button class="copy-btn">
-      복사
-    </button>
-  `;
-
-  el.querySelector("button").onclick=async e=>{
-    await navigator.clipboard.writeText(zh);
-
-    e.currentTarget.textContent="복사됨";
-
-    setTimeout(
-      ()=>e.currentTarget.textContent="복사",
-      1000
+  const n=
+    Number(
+      String(
+        value ?? ""
+      )
+        .replace(
+          /[₩,\s]/g,
+          ""
+        )
+        .replace(
+          /[^\d.-]/g,
+          ""
+        )
     );
+
+
+  return Number.isFinite(n)
+    ? n
+    : 0;
+
+}
+
+
+function formatWon(value){
+
+  return (
+    "₩"
+    +
+    Math.round(
+      Number(value)||0
+    )
+      .toLocaleString(
+        "ko-KR"
+      )
+  );
+
+}
+
+
+function expenseFromRows(rows){
+
+  if(!rows.length){
+    return null;
+  }
+
+
+  let exchangeRate=0;
+
+  let totalBudget=
+    window.TRIP_CONFIG?.totalBudget
+    || 5000000;
+
+  let sheetSpent=0;
+  let sheetRemaining=0;
+
+
+  rows.forEach(row=>{
+
+    row.forEach(
+      (cell,index)=>{
+
+        const label=
+          String(cell||"")
+            .trim();
+
+
+        if(
+          label.includes(
+            "실시간 NT$1"
+          )
+        ){
+
+          exchangeRate=
+            moneyNumber(
+              row[index+1]
+            );
+
+        }
+
+
+        if(
+          label.includes(
+            "여행 예산"
+          )
+        ){
+
+          totalBudget=
+            moneyNumber(
+              row[index+1]
+            )
+            || totalBudget;
+
+        }
+
+
+        if(
+          label.includes(
+            "지출 총합"
+          )
+        ){
+
+          sheetSpent=
+            moneyNumber(
+              row[index+1]
+            );
+
+        }
+
+
+        if(
+          label.includes(
+            "남은 예산"
+          )
+        ){
+
+          sheetRemaining=
+            moneyNumber(
+              row[index+1]
+            );
+
+        }
+
+      }
+    );
+
+  });
+
+
+  const headerRowIndex=
+    rows.findIndex(row=>{
+
+      const headers=
+        row.map(
+          normalizeHeader
+        );
+
+
+      return (
+        headers.includes(
+          normalizeHeader(
+            "날짜"
+          )
+        )
+        &&
+        headers.includes(
+          normalizeHeader(
+            "항목"
+          )
+        )
+        &&
+        headers.includes(
+          normalizeHeader(
+            "최종지출"
+          )
+        )
+      );
+
+    });
+
+
+  if(
+    headerRowIndex<0
+  ){
+
+    return {
+
+      exchangeRate,
+
+      totalBudget,
+
+      spent:
+        sheetSpent,
+
+      remaining:
+        sheetRemaining,
+
+      items:[]
+
+    };
+
+  }
+
+
+  const headers=
+    rows[headerRowIndex]
+      .map(
+        normalizeHeader
+      );
+
+
+  const iDate=
+    getIndex(
+      headers,
+      "날짜"
+    );
+
+  const iCategory=
+    getIndex(
+      headers,
+      "구분"
+    );
+
+  const iItem=
+    getIndex(
+      headers,
+      "항목"
+    );
+
+  const iCurrency=
+    getIndex(
+      headers,
+      "통화"
+    );
+
+  const iUnitPrice=
+    getIndex(
+      headers,
+      "단가"
+    );
+
+  const iQuantity=
+    getIndex(
+      headers,
+      "수량",
+      "인원/수량"
+    );
+
+  const iRate=
+    getIndex(
+      headers,
+      "적용환율"
+    );
+
+  const iFinal=
+    getIndex(
+      headers,
+      "최종지출"
+    );
+
+  const iStatus=
+    getIndex(
+      headers,
+      "결제상태"
+    );
+
+  const iMemo=
+    getIndex(
+      headers,
+      "메모"
+    );
+
+
+  const items=
+    rows
+      .slice(
+        headerRowIndex+1
+      )
+      .map(r=>({
+
+        date:
+          iDate>=0
+            ? (r[iDate]||"").trim()
+            : "",
+
+        category:
+          iCategory>=0
+            ? (r[iCategory]||"").trim()
+            : "",
+
+        item:
+          iItem>=0
+            ? (r[iItem]||"").trim()
+            : "",
+
+        currency:
+          iCurrency>=0
+            ? (r[iCurrency]||"").trim()
+            : "",
+
+        unitPrice:
+          iUnitPrice>=0
+            ? moneyNumber(
+                r[iUnitPrice]
+              )
+            : 0,
+
+        quantity:
+          iQuantity>=0
+            ? moneyNumber(
+                r[iQuantity]
+              )
+            : 0,
+
+        rate:
+          iRate>=0
+            ? moneyNumber(
+                r[iRate]
+              )
+            : 0,
+
+        final:
+          iFinal>=0
+            ? moneyNumber(
+                r[iFinal]
+              )
+            : 0,
+
+        status:
+          iStatus>=0
+            ? (r[iStatus]||"").trim()
+            : "",
+
+        memo:
+          iMemo>=0
+            ? (r[iMemo]||"").trim()
+            : ""
+
+      }))
+      .filter(
+        x=>x.item
+      );
+
+
+  const calculatedSpent=
+    items.reduce(
+      (
+        sum,
+        item
+      )=>
+        sum
+        + item.final,
+      0
+    );
+
+
+  const spent=
+    sheetSpent
+    || calculatedSpent;
+
+
+  const remaining=
+    sheetRemaining
+    || (
+      totalBudget
+      - spent
+    );
+
+
+  return {
+
+    exchangeRate,
+
+    totalBudget,
+
+    spent,
+
+    remaining,
+
+    items
+
   };
 
-  phraseList.appendChild(el);
-});
+}
+
+
+function renderExpenses(){
+
+  if(!expenseData){
+    return;
+  }
+
+
+  let expenseView=
+    document.getElementById(
+      "expense"
+    )
+    ||
+    document.getElementById(
+      "expenses"
+    )
+    ||
+    document.getElementById(
+      "budget"
+    );
+
+
+  if(!expenseView){
+
+    expenseView=
+      [
+        ...document.querySelectorAll(
+          ".view"
+        )
+      ]
+        .find(
+          v=>
+            v.textContent.includes(
+              "지출"
+            )
+        );
+
+  }
+
+
+  if(!expenseView){
+
+    console.warn(
+      "지출현황 화면을 찾지 못했습니다."
+    );
+
+    return;
+
+  }
+
+
+  const {
+    exchangeRate,
+    totalBudget,
+    spent,
+    remaining,
+    items
+  }=
+    expenseData;
+
+
+  const itemHTML=
+    items.length
+
+      ? items
+          .map(item=>`
+
+            <article
+              class="card"
+              style="
+                margin-bottom:12px;
+                padding:16px;
+              "
+            >
+
+              <div
+                style="
+                  display:flex;
+                  justify-content:space-between;
+                  gap:16px;
+                  align-items:flex-start;
+                "
+              >
+
+                <div
+                  style="
+                    min-width:0;
+                  "
+                >
+
+                  <div
+                    style="
+                      font-size:12px;
+                      opacity:.6;
+                      margin-bottom:5px;
+                    "
+                  >
+
+                    ${item.date||""}
+
+                    ${
+                      item.category
+                        ? ` · ${item.category}`
+                        : ""
+                    }
+
+                  </div>
+
+
+                  <strong
+                    style="
+                      display:block;
+                      font-size:16px;
+                      margin-bottom:5px;
+                    "
+                  >
+
+                    ${item.item}
+
+                  </strong>
+
+
+                  ${
+                    item.currency==="NT$"
+
+                      ? `
+
+                        <div
+                          style="
+                            font-size:12px;
+                            opacity:.65;
+                            margin-bottom:4px;
+                          "
+                        >
+
+                          NT$${item.unitPrice.toLocaleString()}
+                          ×
+                          ${item.quantity||1}
+
+                        </div>
+
+                      `
+
+                      : ""
+                  }
+
+
+                  ${
+                    item.status
+
+                      ? `
+
+                        <span
+                          style="
+                            font-size:12px;
+                            opacity:.65;
+                          "
+                        >
+
+                          ${item.status}
+
+                        </span>
+
+                      `
+
+                      : ""
+                  }
+
+
+                  ${
+                    item.memo
+
+                      ? `
+
+                        <div
+                          style="
+                            font-size:12px;
+                            opacity:.65;
+                            margin-top:5px;
+                          "
+                        >
+
+                          ${item.memo}
+
+                        </div>
+
+                      `
+
+                      : ""
+                  }
+
+                </div>
+
+
+                <strong
+                  style="
+                    white-space:nowrap;
+                    font-size:16px;
+                  "
+                >
+
+                  ${formatWon(item.final)}
+
+                </strong>
+
+              </div>
+
+            </article>
+
+          `)
+          .join("")
+
+      : `
+
+          <article class="card">
+
+            <p>
+              아직 등록된 지출이 없습니다.
+            </p>
+
+          </article>
+
+        `;
+
+
+  expenseView.innerHTML=`
+
+    <div
+      style="
+        padding-bottom:24px;
+      "
+    >
+
+      <p class="eyebrow">
+        TAIWAN FAMILY TRIP
+      </p>
+
+
+      <h2
+        style="
+          margin-bottom:18px;
+        "
+      >
+        지출 현황
+      </h2>
+
+
+      <div
+        class="card"
+        style="
+          padding:18px;
+          margin-bottom:14px;
+        "
+      >
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:16px;
+          "
+        >
+
+          <div>
+
+            <div
+              style="
+                font-size:12px;
+                opacity:.6;
+                margin-bottom:5px;
+              "
+            >
+              총 예산
+            </div>
+
+
+            <strong
+              style="
+                font-size:21px;
+              "
+            >
+
+              ${formatWon(totalBudget)}
+
+            </strong>
+
+          </div>
+
+
+          <div
+            style="
+              text-align:right;
+            "
+          >
+
+            <div
+              style="
+                font-size:12px;
+                opacity:.6;
+                margin-bottom:5px;
+              "
+            >
+              현재 대만 환율
+            </div>
+
+
+            <strong
+              style="
+                font-size:17px;
+                color:#e53935;
+              "
+            >
+
+              NT$1 = ₩${
+                exchangeRate
+
+                  ? exchangeRate
+                      .toFixed(2)
+
+                  : "-"
+              }
+
+            </strong>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+          margin-bottom:22px;
+        "
+      >
+
+        <div
+          class="card"
+          style="
+            padding:16px;
+          "
+        >
+
+          <div
+            style="
+              font-size:12px;
+              opacity:.6;
+              margin-bottom:5px;
+            "
+          >
+
+            현재 지출
+
+          </div>
+
+
+          <strong
+            style="
+              font-size:19px;
+            "
+          >
+
+            ${formatWon(spent)}
+
+          </strong>
+
+        </div>
+
+
+        <div
+          class="card"
+          style="
+            padding:16px;
+          "
+        >
+
+          <div
+            style="
+              font-size:12px;
+              opacity:.6;
+              margin-bottom:5px;
+            "
+          >
+
+            남은 예산
+
+          </div>
+
+
+          <strong
+            style="
+              font-size:19px;
+            "
+          >
+
+            ${formatWon(remaining)}
+
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:end;
+          margin-bottom:10px;
+        "
+      >
+
+        <h3
+          style="
+            margin:0;
+          "
+        >
+
+          지출 내역
+
+        </h3>
+
+
+        <span
+          style="
+            font-size:12px;
+            opacity:.55;
+          "
+        >
+
+          ${items.length}개 항목
+
+        </span>
+
+      </div>
+
+
+      ${itemHTML}
+
+    </div>
+
+  `;
+
+}
+
+
+// ===============================
+// 여행 회화
+// ===============================
+
+const phraseList=
+  document.getElementById(
+    "phraseList"
+  );
+
+
+if(phraseList){
+
+  (
+    data.phrases
+    || []
+  )
+    .forEach(
+      ([ko,zh,roman])=>{
+
+        const el=
+          document.createElement(
+            "article"
+          );
+
+
+        el.className=
+          "phrase-card card";
+
+
+        el.innerHTML=`
+
+          <div>
+
+            <p class="ko">
+              ${ko}
+            </p>
+
+            <div class="zh">
+              ${zh}
+            </div>
+
+            <small class="muted">
+              ${roman}
+            </small>
+
+          </div>
+
+
+          <button
+            class="copy-btn"
+          >
+            복사
+          </button>
+
+        `;
+
+
+        el
+          .querySelector(
+            "button"
+          )
+          .onclick=
+            async e=>{
+
+              await navigator
+                .clipboard
+                .writeText(
+                  zh
+                );
+
+
+              e.currentTarget
+                .textContent=
+                  "복사됨";
+
+
+              setTimeout(
+                ()=>{
+                  e.currentTarget
+                    .textContent=
+                      "복사";
+                },
+                1000
+              );
+
+            };
+
+
+        phraseList
+          .appendChild(
+            el
+          );
+
+      }
+    );
+
+}
+
+
+// ===============================
+// Google Sheets 로드
+// ===============================
 
 async function loadCSV(url){
+
   const res=
     await fetch(
       url,
-      {cache:"no-store"}
+      {
+        cache:"no-store"
+      }
     );
 
+
   if(!res.ok){
+
     throw new Error(
       `HTTP ${res.status}`
     );
+
   }
 
+
   return await res.text();
+
 }
 
+
 async function loadAllData(){
+
   const scheduleUrl=
-    window.TRIP_CONFIG?.scheduleCsvUrl;
+    window.TRIP_CONFIG
+      ?.scheduleCsvUrl;
+
 
   const placeGuideUrl=
-    window.TRIP_CONFIG?.placeGuideCsvUrl;
+    window.TRIP_CONFIG
+      ?.placeGuideCsvUrl;
 
+
+  const expenseUrl=
+    window.TRIP_CONFIG
+      ?.expenseCsvUrl;
+
+
+  // 일정
   if(scheduleUrl){
+
     try{
+
       const text=
-        await loadCSV(scheduleUrl);
+        await loadCSV(
+          scheduleUrl
+        );
+
 
       const remote=
         scheduleFromRows(
           parseCSV(text)
         );
 
+
       if(remote.length){
-        data.days=remote;
+
+        data.days=
+          remote;
+
       }
 
     }catch(err){
+
       console.warn(
         "Google Sheets schedule load failed; using local fallback.",
         err
       );
+
     }
+
   }
 
+
+  // 장소 가이드
   if(placeGuideUrl){
+
     try{
+
       const text=
-        await loadCSV(placeGuideUrl);
+        await loadCSV(
+          placeGuideUrl
+        );
+
 
       placeGuideData=
         placeGuideFromRows(
@@ -651,19 +2353,70 @@ async function loadAllData(){
         );
 
     }catch(err){
+
       console.warn(
         "Google Sheets place guide load failed.",
         err
       );
+
     }
+
   }
 
+
+  // 지출
+  if(expenseUrl){
+
+    try{
+
+      const text=
+        await loadCSV(
+          expenseUrl
+        );
+
+
+      expenseData=
+        expenseFromRows(
+          parseCSV(text)
+        );
+
+    }catch(err){
+
+      console.warn(
+        "Google Sheets expense load failed.",
+        err
+      );
+
+    }
+
+  }
+
+
   renderAll();
+
   renderPlaceGuide(1);
+
+  renderExpenses();
+
 }
+
+
+// ===============================
+// 시작
+// ===============================
 
 loadAllData();
 
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("./sw.js");
+
+if(
+  "serviceWorker"
+  in navigator
+){
+
+  navigator
+    .serviceWorker
+    .register(
+      "./sw.js"
+    );
+
 }
