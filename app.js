@@ -4141,45 +4141,67 @@ if(
       });
 
 
-    if (oldGuideCard) {
+if (oldGuideCard) {
 
-      /*
-        기존 data-target 제거
-      */
-
-      oldGuideCard
-        .removeAttribute(
-          "data-target"
-        );
+  oldGuideCard.removeAttribute(
+    "data-target"
+  );
 
 
-      /*
-        내부 제목 변경
-      */
+  const texts =
+    [...oldGuideCard.querySelectorAll("*")];
 
-      const headings =
-        [
-          ...oldGuideCard
-            .querySelectorAll(
-              "h2, h3, strong"
-            )
-        ];
+  texts.forEach(el => {
+
+    const text =
+      el.textContent
+        .replace(/\s+/g, " ")
+        .trim();
 
 
-      const heading =
-        headings.find(el =>
-          el.textContent.includes(
-            "장소"
-          )
-        );
+    if (
+      text === "장소가이드" ||
+      text === "장소 가이드"
+    ) {
+      el.textContent =
+        "여행 준비";
+    }
 
 
-      if (heading) {
+    if (
+      text === "설명지도" ||
+      text.includes("설명지도")
+    ) {
+      el.textContent =
+        "준비물 · 쇼핑 · 현지 체크";
+    }
 
-        heading.textContent =
-          "🧳 여행 준비 & 쇼핑";
 
-      }
+    if (
+      text === "📍" ||
+      text === "📌"
+    ) {
+      el.textContent =
+        "🛍️";
+    }
+
+  });
+
+
+  oldGuideCard.style.cursor =
+    "pointer";
+
+
+  oldGuideCard.onclick =
+    event => {
+
+      event.preventDefault();
+
+      showView("prep");
+
+    };
+
+}
 
 
       /*
