@@ -29,3 +29,45 @@ main{max-width:760px;margin:auto;padding:0 16px}.view{display:none}.view.active{
 
   color: #1f5f52;
 }
+/* ===== 여행회화 버튼 정렬 ===== */
+
+.phrase-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.phrase-action-btn,
+.copy-btn {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  text-align: center;
+  justify-content: center;
+}
+
+
+/* ===== 긴급·안전 카드 왼쪽 여백 정리 ===== */
+
+.emergency-card {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.emergency-card > * {
+  margin-left: 0 !important;
+}
+
+.emergency-card .emergency-header {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.emergency-card .emergency-content,
+.emergency-card .emergency-body,
+.emergency-card .emergency-meta {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
