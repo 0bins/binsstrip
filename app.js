@@ -1,0 +1,17 @@
+const data=window.LOCAL_TRIP_DATA;
+const views=[...document.querySelectorAll(".view")];
+function showView(id){views.forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.target===id));window.scrollTo({top:0,behavior:"smooth"})}
+document.querySelectorAll("[data-target]").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.target)));
+const fmtDate=iso=>{const d=new Date(iso+"T12:00:00");return `${d.getMonth()+1}/${d.getDate()}`};
+function todayDay(){const n=new Date();const iso=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;return data.days.find(d=>d.date===iso)||null}
+const td=todayDay();
+if(td){todayTitle.textContent=`DAY ${td.day} · ${td.title}`;todaySummary.textContent=`${fmtDate(td.date)} · ${td.city}`}
+goTodayBtn.addEventListener("click",()=>{showView("schedule");renderDay(td?.day||1)});
+data.days.forEach(d=>{const el=document.createElement("button");el.className="overview-item card";el.innerHTML=`<div><small>DAY ${d.day} · ${fmtDate(d.date)}</small><strong>${d.title}</strong></div><span>›</span>`;el.onclick=()=>{showView("schedule");renderDay(d.day)};overviewList.appendChild(el)});
+data.days.forEach(d=>{const b=document.createElement("button");b.textContent=`DAY ${d.day}`;b.dataset.day=d.day;b.onclick=()=>renderDay(d.day);dayTabs.appendChild(b)});
+function renderDay(no){const d=data.days.find(x=>x.day===no)||data.days[0];document.querySelectorAll(".day-tabs button").forEach(b=>b.classList.toggle("active",Number(b.dataset.day)===d.day));const items=d.items.length?d.items.map(i=>`<article class="timeline-item card"><div class="time">${i.time||"—"}</div><div><h3>${i.title}</h3><p>${i.place||""}${i.note?`<br>${i.note}`:""}</p>${i.guide?`<button class="secondary" onclick="openGuide('${i.guide}')">자세히 보기</button>`:""}</div></article>`).join(""):`<article class="timeline-item card"><div class="time">—</div><div><h3>일정 준비 중</h3><p>Google Sheets에 DAY ${d.day} 일정을 추가하면 자동 갱신하도록 연결할 수 있습니다.</p></div></article>`;dayDetail.innerHTML=`<article class="day-hero card"><p class="eyebrow">DAY ${d.day} · ${fmtDate(d.date)}</p><h2>${d.title}</h2><p class="muted">${d.city}</p></article><div class="timeline">${items}</div>`}
+renderDay(td?.day||1);
+window.openGuide=key=>{showView("guide");setTimeout(()=>document.querySelector(`[data-guide="${key}"]`)?.scrollIntoView({behavior:"smooth"}),50)};
+Object.entries(data.guides).forEach(([k,g])=>{const el=document.createElement("article");el.className="guide-card card";el.dataset.guide=k;el.innerHTML=`<h3>${g.title}</h3><p>${g.text}</p><a class="secondary" href="${g.map}" target="_blank" rel="noopener">지도 열기</a>`;guideList.appendChild(el)});
+data.phrases.forEach(([ko,zh,roman])=>{const el=document.createElement("article");el.className="phrase-card card";el.innerHTML=`<div><p class="ko">${ko}</p><div class="zh">${zh}</div><small class="muted">${roman}</small></div><button class="copy-btn">복사</button>`;el.querySelector("button").onclick=async e=>{await navigator.clipboard.writeText(zh);e.currentTarget.textContent="복사됨";setTimeout(()=>e.currentTarget.textContent="복사",1000)};phraseList.appendChild(el)});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js");
