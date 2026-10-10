@@ -3470,6 +3470,9 @@ if(
 
       .phrase-card {
         padding: 20px;
+        box-sizing: border-box;
+        width: 100%;
+        overflow: hidden;
       }
 
       .phrase-korean {
@@ -3504,20 +3507,25 @@ if(
         opacity: 0.62;
       }
 
-      .phrase-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 15px;
+     .phrase-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 100%;
+        margin-top: 18px;
+        box-sizing: border-box;
       }
 
       .phrase-action-btn {
-        flex: 1;
+        width: 100%;
+        min-width: 0;
         border: 0;
         border-radius: 12px;
-        padding: 11px 10px;
+        padding: 13px 12px;
         font-size: 14px;
         font-weight: 700;
         cursor: pointer;
+        box-sizing: border-box;
       }
 
       .phrase-listen-btn {
