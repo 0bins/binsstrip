@@ -9,5 +9,7 @@ window.TRIP_CONFIG = {
 
   phrasesCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2S9a7AS9ThcgQyGFId6S1EbarMy1rtGtmPBDaWjNIx-mmecp7y5TkqrtqaRgeQnh__xbGiXK-D-Qa/pub?gid=1199832956&single=true&output=csv",
 
+  tripPrepCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2S9a7AS9ThcgQyGFId6S1EbarMy1rtGtmPBDaWjNIx-mmecp7y5TkqrtqaRgeQnh__xbGiXK-D-Qa/pub?gid=1952751858&single=true&output=csv",
+
   totalBudget: 5000000
 };
