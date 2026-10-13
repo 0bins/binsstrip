@@ -262,6 +262,13 @@ function scheduleFromRows(rows){
       "시간"
     );
 
+  const iEndTime=
+    getIndex(
+      headers,
+      "종료시간",
+      "종료 시간"
+    );
+
   const iCity=
     getIndex(
       headers,
@@ -460,40 +467,16 @@ function scheduleFromRows(rows){
       }
 
 
-      const bits=[];
-
-
-      if(
-        iMove>=0
-        && (r[iMove]||"").trim()
-      ){
-
-        bits.push(
-          (r[iMove]||"")
-            .trim()
-        );
-
-      }
-
-
-      if(
-        iMemo>=0
-        && (r[iMemo]||"").trim()
-      ){
-
-        bits.push(
-          (r[iMemo]||"")
-            .trim()
-        );
-
-      }
-
-
       g.items.push({
 
         time:
           iTime>=0
             ? (r[iTime]||"").trim()
+            : "",
+
+        endTime:
+          iEndTime>=0
+            ? (r[iEndTime]||"").trim()
             : "",
 
         title:
@@ -509,10 +492,15 @@ function scheduleFromRows(rows){
             ? (r[iPlace]||"").trim()
             : "",
 
-        note:
-          bits
-            .filter(Boolean)
-            .join(" · ")
+        transport:
+          iMove>=0
+            ? (r[iMove]||"").trim()
+            : "",
+
+        memo:
+          iMemo>=0
+            ? (r[iMemo]||"").trim()
+            : ""
 
       });
 
@@ -1129,7 +1117,15 @@ function renderDay(dayNo){
             >
 
               <div class="time">
-                ${i.time||"—"}
+                ${
+                  i.time
+                    ? (
+                        i.endTime
+                          ? `${i.time}<br>–<br>${i.endTime}`
+                          : i.time
+                      )
+                    : "—"
+                }
               </div>
 
               <div>
@@ -1138,17 +1134,38 @@ function renderDay(dayNo){
                   ${i.title}
                 </h3>
 
-                <p>
+                ${
+                  i.place
+                    ? `
+                      <p class="schedule-detail-line">
+                        <strong>장소</strong><br>
+                        ${i.place.replace(/\n/g,"<br>")}
+                      </p>
+                    `
+                    : ""
+                }
 
-                  ${i.place||""}
+                ${
+                  i.transport
+                    ? `
+                      <p class="schedule-detail-line">
+                        <strong>이동수단</strong><br>
+                        ${i.transport.replace(/\n/g,"<br>")}
+                      </p>
+                    `
+                    : ""
+                }
 
-                  ${
-                    i.note
-                      ? `<br>${i.note.replace(/\n/g,"<br>")}`
-                      : ""
-                  }
-
-                </p>
+                ${
+                  i.memo
+                    ? `
+                      <p class="schedule-detail-line">
+                        <strong>메모</strong><br>
+                        ${i.memo.replace(/\n/g,"<br>")}
+                      </p>
+                    `
+                    : ""
+                }
 
               </div>
 
@@ -3906,6 +3923,39 @@ if(
   document.head.appendChild(style);
 })();
 
+
+/* =========================================================
+   SCHEDULE DETAIL · 시간범위 + 장소/이동수단/메모 줄바꿈
+   ========================================================= */
+(function addScheduleDetailStyles(){
+  if(document.getElementById("scheduleDetailStyles")) return;
+
+  const style=document.createElement("style");
+  style.id="scheduleDetailStyles";
+  style.textContent=`
+    .timeline-item .time{
+      line-height:1.35;
+      white-space:nowrap;
+    }
+
+    .schedule-detail-line{
+      margin:8px 0 0;
+      line-height:1.5;
+    }
+
+    .schedule-detail-line strong{
+      display:inline-block;
+      margin-bottom:2px;
+      color:#1d1c18;
+      font-size:12px;
+      opacity:.65;
+    }
+  `;
+
+  document.head.appendChild(style);
+})();
+
+
 /* =========================================================
    TRIP_PREP · 여행 준비 & 쇼핑
    - Google Sheets CSV 읽기
@@ -3951,9 +4001,9 @@ if(
     window.scrollTo({top:0,behavior:"smooth"});
   };
 
-  /* 홈 상단 퀵버튼: 장소 가이드 → 여행 준비 */
+  /* 홈 상단 퀵버튼이 prep으로 연결되도록 보장 */
   const prepQuick=document.querySelector(
-    '#home .quick-grid .quick[data-target="guide"]'
+    '#home .quick-grid .quick[data-target="guide"], #home .quick-grid .quick[data-target="prep"]'
   );
 
   if(prepQuick){
@@ -3963,6 +4013,7 @@ if(
       <b>여행 준비</b>
       <small>준비물 · 쇼핑 · 현지 체크</small>
     `;
+    prepQuick.onclick=()=>showView("prep");
   }
 
   /* 하단 메뉴는 실제 장소 가이드로 유지 */
