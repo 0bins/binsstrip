@@ -577,3 +577,10 @@ main{
   }
 
 }
+
+
+/* PLACE_GUIDE 줄바꿈 표시 */
+.guide-card p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
