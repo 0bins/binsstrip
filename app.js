@@ -2899,6 +2899,8 @@ if(
   /* 화면에 출력 */
   function renderEmergency(items) {
 
+    items = items.filter(item => !String(item["구분"] || "").includes("세탁"));
+
     const infoView = document.querySelector("#info");
 
     if (!infoView) {
@@ -4386,5 +4388,53 @@ if(
     }
     draw();
   }catch(error){summary.textContent="구매 목록을 불러오지 못했습니다.";list.textContent="COSTCO_COST 탭이 웹에 게시되어 있는지 확인한 뒤 새로고침해 주세요.";}
+})();
+
+
+/* 숙소 정보 바로 아래: 세탁·건조 안내와 지도 */
+(async function loadNearbyLaundry(){
+  const url=window.TRIP_CONFIG?.emergencyCsvUrl;
+  const info=document.getElementById("info");
+  if(!url||!info) return;
+  const block=document.createElement("div");
+  block.id="nearbyLaundrySection";
+  const heading=document.createElement("div");
+  heading.className="section-head";
+  const title=document.createElement("h2");
+  title.textContent="🧺 숙소 근처 세탁·건조";
+  heading.appendChild(title);block.appendChild(heading);
+  const cards=document.createElement("div");cards.className="stack";
+  block.appendChild(cards);
+  const hotelStack=info.querySelector(".stack");
+  if(hotelStack)hotelStack.after(block);else info.appendChild(block);
+  try{
+    const rows=parseCSV(await loadCSV(url+(url.includes("?")?"&":"?")+"v="+Date.now()));
+    const headers=rows[0].map(normalizeHeader);
+    const col=name=>getIndex(headers,name);
+    const entries=rows.slice(1).filter(r=>String(r[col("구분")]||"").includes("세탁"));
+    entries.forEach(r=>{
+      const name=r[col("제목")]||"세탁·건조";
+      const card=document.createElement("article");card.className="card info-card";
+      const h=document.createElement("h3");h.textContent=name;card.appendChild(h);
+      const description=document.createElement("p");description.textContent=r[col("설명")]||"";description.style.whiteSpace="pre-line";card.appendChild(description);
+      const hours=r[col("운영시간")];
+      if(hours){const p=document.createElement("p");const label=document.createElement("strong");label.textContent="운영시간 ";p.append(label,document.createTextNode(hours));card.appendChild(p);}
+      const advice=r[col("행동요령")];
+      if(advice){const box=document.createElement("div");box.className="emergency-action";const label=document.createElement("strong");label.textContent="건조기 이용 팁";const p=document.createElement("p");p.textContent=advice;p.style.whiteSpace="pre-line";box.append(label,p);card.appendChild(box);}
+      const link=r[col("링크")]||"";
+      let query="";
+      try{const parsed=new URL(link);if(parsed.hostname==="www.google.com"||parsed.hostname==="google.com")query=parsed.searchParams.get("query")||"";}catch(_){}
+      if(query){
+        const map=document.createElement("div");map.className="map-wrap";
+        const frame=document.createElement("iframe");
+        frame.src="https://www.google.com/maps?q="+encodeURIComponent(query)+"&output=embed";
+        frame.title=name+" 위치 지도";frame.loading="lazy";frame.referrerPolicy="no-referrer-when-downgrade";frame.allowFullscreen=true;
+        map.appendChild(frame);card.appendChild(map);
+      }
+      if(/^https?:\/\//i.test(link)){const a=document.createElement("a");a.className="secondary";a.href=link;a.target="_blank";a.rel="noopener noreferrer";a.style.marginTop="12px";a.textContent="지도 크게 보기 · 길찾기";card.appendChild(a);}
+      cards.appendChild(card);
+    });
+    if(!entries.length)block.remove();
+  }catch(error){cards.textContent="세탁·건조 안내를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.";}
 })();
 
