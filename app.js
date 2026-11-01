@@ -4332,3 +4332,59 @@ if(
   }
 })();
 
+
+/* COSTCO_COST · 코스트코 가오슝 구매 목록 */
+(async function initCostco(){
+  const base=window.TRIP_CONFIG?.tripPrepCsvUrl;
+  if(!base) return;
+  const url=base.replace(/gid=\d+/,"gid=1478522485");
+  const section=document.createElement("section");
+  section.id="costco"; section.className="view";
+  section.innerHTML='<div class="section-head"><div><p class="eyebrow">COSTCO KAOHSIUNG</p><h2>코스트코 구매 목록</h2><p class="muted">가격·수량은 COSTCO_COST 시트에서 입력하세요.</p></div></div><div id="costcoSummary" class="card" style="padding:16px;margin-bottom:12px"></div><p class="muted">구매 체크는 이 기기에만 저장됩니다. 수량이 비어 있으면 1개로 계산합니다.</p><div id="costcoList" class="stack"></div>';
+  document.querySelector("main").appendChild(section);
+  const button=document.createElement("button");
+  button.className="quick card";
+  button.innerHTML='🛒<b>코스트코 가오슝</b><small>구매 목록 · 체크 · 예상 합계</small>';
+  button.onclick=()=>showView("costco");
+  document.querySelector("#home .quick-grid").appendChild(button);
+  const shortcut=document.createElement("button");
+  shortcut.className="secondary"; shortcut.textContent="🛒 코스트코 구매 목록";
+  shortcut.style.margin="12px 0";
+  shortcut.onclick=()=>showView("costco");
+  document.querySelector("#prep")?.prepend(shortcut);
+  const list=section.querySelector("#costcoList");
+  const summary=section.querySelector("#costcoSummary");
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const number=s=>{const n=Number(String(s??"").replace(/NT\$|TWD|[,\s]/gi,""));return Number.isFinite(n)&&n>=0?n:null;};
+  let saved={};try{saved=JSON.parse(localStorage.getItem("costcoChecksV1")||"{}");}catch(_){}
+  try{
+    const rows=parseCSV(await loadCSV(url+"&v="+Date.now()));
+    if(!rows.length) throw Error("empty");
+    const headers=rows[0].map(normalizeHeader);
+    const ix=(...names)=>getIndex(headers,...names);
+    const itemIx=ix("항목"),listIx=ix("목록"),catIx=ix("분류"),memoIx=ix("메모"),placeIx=ix("준비기한·구매장소"),doneIx=ix("완료"),priceIx=ix("단가(NT$)","단가","가격"),qtyIx=ix("수량");
+    const items=rows.slice(1).map(r=>{
+      const name=(r[itemIx]||r[listIx]||"").trim();
+      const category=r[catIx]||"";
+      const key=JSON.stringify([category,name]);
+      const rawPrice=r[priceIx]||"",rawQty=r[qtyIx]||"";
+      return {name,category,key,memo:r[memoIx]||"",place:r[placeIx]||"",price:rawPrice.trim()?number(rawPrice):null,qty:rawQty.trim()?number(rawQty):1,done:Object.hasOwn(saved,key)?Boolean(saved[key]):String(r[doneIx]).toUpperCase()==="TRUE"};
+    }).filter(x=>x.name);
+    function draw(){
+      list.innerHTML="";
+      let total=0,missing=0,bought=0;
+      items.forEach(item=>{
+        const subtotal=item.price!==null&&item.qty!==null?item.price*item.qty:null;
+        if(subtotal===null)missing++;else{total+=subtotal;if(item.done)bought+=subtotal;}
+        const card=document.createElement("article");card.className="card";card.style.padding="16px";
+        card.innerHTML='<label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer"><input type="checkbox" '+(item.done?"checked":"")+' style="width:22px;height:22px;flex-shrink:0"><div style="min-width:0"><small class="muted">'+esc(item.category)+'</small><h3 style="margin:4px 0;'+(item.done?"text-decoration:line-through;opacity:.6":"")+'">'+esc(item.name)+'</h3><p style="margin:8px 0">'+(subtotal===null?"가격·수량 확인 필요":'NT$'+item.price.toLocaleString()+" × "+item.qty+" = NT$"+subtotal.toLocaleString())+'</p><p class="muted" style="white-space:pre-line;margin:4px 0">'+esc([item.place,item.memo].filter(Boolean).join("\n"))+'</p></div></label>';
+        card.querySelector("input").onchange=e=>{item.done=e.target.checked;saved[item.key]=item.done;try{localStorage.setItem("costcoChecksV1",JSON.stringify(saved));}catch(_){}draw();};
+        list.appendChild(card);
+      });
+      summary.textContent="구매 "+items.filter(x=>x.done).length+"/"+items.length+"개 · 예상 합계 NT$"+total.toLocaleString()+" · 구매완료 금액 NT$"+bought.toLocaleString()+(missing?" · 가격·수량 미입력 "+missing+"개 제외":"");
+      if(!items.length)list.textContent="시트의 목록 또는 항목 열에 구매할 물건을 입력하세요.";
+    }
+    draw();
+  }catch(error){summary.textContent="구매 목록을 불러오지 못했습니다.";list.textContent="COSTCO_COST 탭이 웹에 게시되어 있는지 확인한 뒤 새로고침해 주세요.";}
+})();
+
