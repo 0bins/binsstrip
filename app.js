@@ -1383,9 +1383,7 @@ function renderPlaceGuide(
           }
 
 
-          <p class="eyebrow">
-            DAY ${g.day}
-          </p>
+          <p class="eyebrow">DAY ${g.day}</p>
 
 
           <h3>
@@ -1398,11 +1396,7 @@ function renderPlaceGuide(
 
               ? `
 
-                <p>
-                  <strong>
-                    ${g.intro}
-                  </strong>
-                </p>
+                <p><strong>${g.intro}</strong></p>
 
               `
 
@@ -1415,9 +1409,7 @@ function renderPlaceGuide(
 
               ? `
 
-                <p>
-                  ${g.description}
-                </p>
+                <p>${g.description}</p>
 
               `
 
@@ -1430,17 +1422,7 @@ function renderPlaceGuide(
 
               ? `
 
-                <p>
-
-                  <strong>
-                    체류시간
-                  </strong>
-
-                  <br>
-
-                  ${g.duration}
-
-                </p>
+                <p><strong>체류시간</strong><br>${g.duration}</p>
 
               `
 
@@ -1453,17 +1435,7 @@ function renderPlaceGuide(
 
               ? `
 
-                <p>
-
-                  <strong>
-                    주의사항
-                  </strong>
-
-                  <br>
-
-                  ${g.caution}
-
-                </p>
+                <p><strong>주의사항</strong><br>${g.caution}</p>
 
               `
 
@@ -4359,3 +4331,4 @@ if(
     document.head.appendChild(style);
   }
 })();
+
